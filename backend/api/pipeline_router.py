@@ -24,6 +24,7 @@ class VoiceTranscriptionResponse(BaseModel):
 class TextToSpeechRequest(BaseModel):
     """Text-to-Speech synthesis input payload."""
     text: str
+    language: str = "en"
 
 
 @router.post("/pipeline/process", response_model=PipelineResponse)
@@ -51,17 +52,20 @@ async def process_pipeline(
 
 
 @router.post("/voice/transcribe", response_model=VoiceTranscriptionResponse)
-async def transcribe_voice(audio_file: UploadFile = File(...)) -> VoiceTranscriptionResponse:
+async def transcribe_voice(
+    audio_file: UploadFile = File(...),
+    language: str = Form("auto"),
+) -> VoiceTranscriptionResponse:
     """Transcribe uploaded audio file to text locally without external APIs."""
     audio_bytes = await audio_file.read()
-    text = await asyncio.to_thread(voice_service.transcribe_audio, audio_bytes, audio_file.filename or "audio.wav")
+    text = await asyncio.to_thread(voice_service.transcribe_audio, audio_bytes, audio_file.filename or "audio.wav", language)
     return VoiceTranscriptionResponse(transcribed_text=text)
 
 
 @router.post("/voice/synthesize")
 async def synthesize_voice(req: TextToSpeechRequest) -> Response:
     """Synthesize text into WAV audio bytes locally without external APIs."""
-    wav_bytes = await asyncio.to_thread(voice_service.synthesize_speech, req.text)
+    wav_bytes = await asyncio.to_thread(voice_service.synthesize_speech, req.text, req.language)
     return Response(content=wav_bytes, media_type="audio/wav")
 
 

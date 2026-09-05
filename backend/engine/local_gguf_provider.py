@@ -143,15 +143,16 @@ class LocalGgufLlmProvider(BaseLlmProvider):
         prompt: str,
         system_prompt: str | None,
         max_tokens: int | None = None,
-        use_grammar: bool = False,
+        use_grammar: bool = True,
     ) -> str | None:
         if self._model is None:
             self._model = self._load_model()
         if self._model is None:
             return None
         grammar = self._load_grammar() if use_grammar else None
-        effective_max_tokens = max_tokens or (512 if "2b" in str(self._model_path).lower() else app_settings.llm.max_tokens)
-        msgs = _build_messages(prompt, system_prompt, self._model_path)
+        model_p = str(getattr(self, "_model_path", ""))
+        effective_max_tokens = max_tokens or (512 if "2b" in model_p.lower() else app_settings.llm.max_tokens)
+        msgs = _build_messages(prompt, system_prompt, model_p)
         try:
             resp = self._model.create_chat_completion(
                 messages=msgs,
@@ -183,7 +184,7 @@ class LocalGgufLlmProvider(BaseLlmProvider):
         prompt: str,
         system_prompt: str | None,
         max_tokens: int | None = None,
-        use_grammar: bool = False,
+        use_grammar: bool = True,
     ) -> Any:
         if self._model is None:
             self._model = self._load_model()
@@ -191,8 +192,9 @@ class LocalGgufLlmProvider(BaseLlmProvider):
             yield "No LLM model is currently available (Local GGUF model not active)."
             return
         grammar = self._load_grammar() if use_grammar else None
-        effective_max_tokens = max_tokens or (512 if "2b" in str(self._model_path).lower() else app_settings.llm.max_tokens)
-        msgs = _build_messages(prompt, system_prompt, self._model_path)
+        model_p = str(getattr(self, "_model_path", ""))
+        effective_max_tokens = max_tokens or (512 if "2b" in model_p.lower() else app_settings.llm.max_tokens)
+        msgs = _build_messages(prompt, system_prompt, model_p)
         try:
             resp = self._model.create_chat_completion(
                 messages=msgs,

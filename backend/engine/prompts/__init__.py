@@ -11,12 +11,18 @@ from backend.engine.prompts.prompt_formatter import (
     format_tender_clause_prompt,
     format_testing_matrix_prompt,
 )
-from backend.engine.prompts.system_prompt import MASTER_SYSTEM_PROMPT
+from backend.engine.prompts.system_prompt import (
+    MASTER_SYSTEM_PROMPT,
+    WEB_SEARCH_TOOL_INSTRUCTION,
+    build_system_prompt_with_tools,
+)
 from backend.engine.prompts.tender_clause_prompt import TENDER_CLAUSE_PROMPT_TEMPLATE
 from backend.engine.prompts.testing_matrix_prompt import TESTING_MATRIX_PROMPT_TEMPLATE
 
 __all__ = [
     "MASTER_SYSTEM_PROMPT",
+    "WEB_SEARCH_TOOL_INSTRUCTION",
+    "build_system_prompt_with_tools",
     "EVALUATION_PROMPT_TEMPLATE",
     "TESTING_MATRIX_PROMPT_TEMPLATE",
     "TENDER_CLAUSE_PROMPT_TEMPLATE",
@@ -28,3 +34,4 @@ __all__ = [
     "format_testing_matrix_prompt",
     "format_tender_clause_prompt",
 ]
+

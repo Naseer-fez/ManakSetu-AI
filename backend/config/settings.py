@@ -8,6 +8,7 @@ import yaml
 from pydantic import BaseModel, Field
 
 from backend.config.paths import (
+    CONFIG_DIR,
     CONFIG_YAML_PATH,
     DATA_DIR,
     DEFAULT_GGUF_MODEL_PATH,
@@ -22,6 +23,7 @@ from backend.config.paths import (
     SEMANTIC_CACHE_DB_PATH,
     STANDARDS_DB_PATH,
     STT_MODEL_PATH,
+    TTS_CACHE_DIR,
     TTS_ENG_MODEL_PATH,
     TTS_HIN_MODEL_PATH,
     UPLOADS_DIR,
@@ -80,9 +82,19 @@ class CacheSettings(BaseModel):
 
 
 class VoiceSettings(BaseModel):
+    stt_provider: str = "faster_whisper"
     stt_model_path: str = str(STT_MODEL_PATH)
+    stt_device: str = "cpu"
+    stt_compute_type: str = "int8"
+    stt_beam_size: int = 1
+    tts_provider: str = "mms_vits"
     tts_eng_model_path: str = str(TTS_ENG_MODEL_PATH)
     tts_hin_model_path: str = str(TTS_HIN_MODEL_PATH)
+    tts_device: str = "cpu"
+    default_language: str = "auto"
+    max_audio_duration_sec: int = 60
+    audio_sample_rate: int = 16000
+    tts_cache_dir: str = str(TTS_CACHE_DIR)
 
 
 class BisScraperSettings(BaseModel):
@@ -106,6 +118,19 @@ class DistributedReasoningSettings(BaseModel):
     local_preprocessor_model: str = "llm/gemma-2b.gguf"
 
 
+class WebSearchSettings(BaseModel):
+    enabled: bool = False
+    provider: str = "brave"
+    api_key_env_var: str = "BRAVE_SEARCH_API_KEY"
+    request_timeout_sec: int = 15
+    fast_answer_top_k: int = 2
+    fast_answer_max_tokens: int = 300
+    heavy_reasoning_top_k: int = 3
+    heavy_reasoning_max_tokens: int = 500
+    cache_ttl_hours: int = 24
+    guardrail_config: str = str(CONFIG_DIR / "web_search_domains.yaml")
+
+
 class AppSettings(BaseModel):
     distributed_reasoning: DistributedReasoningSettings = Field(default_factory=DistributedReasoningSettings)
     server: ServerSettings = Field(default_factory=ServerSettings)
@@ -116,6 +141,7 @@ class AppSettings(BaseModel):
     voice: VoiceSettings = Field(default_factory=VoiceSettings)
     bis_scraper: BisScraperSettings = Field(default_factory=BisScraperSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
+    web_search: WebSearchSettings = Field(default_factory=WebSearchSettings)
 
 
 def _resolve_relative_path(val: Any) -> Any:
@@ -129,7 +155,9 @@ def _resolve_relative_path(val: Any) -> Any:
             and not os.path.isabs(val_str)
             and ("/" in val_str or "\\" in val_str)
         ):
-            return str(PROJECT_ROOT / val_str)
+            candidate = PROJECT_ROOT / val_str
+            if candidate.exists() or val_str.startswith(("backend", "llm", "vectordb", "data", "logs", "tests")):
+                return str(candidate)
     return val
 
 
@@ -162,6 +190,11 @@ def load_settings(config_path: str | Path | None = None) -> AppSettings:
         if "distributed_reasoning" not in raw_data or not isinstance(raw_data["distributed_reasoning"], dict):
             raw_data["distributed_reasoning"] = {}
         raw_data["distributed_reasoning"]["mac_available"] = env_mac.strip().lower() in ("1", "true", "yes", "on")
+    env_ws = os.getenv("WEB_SEARCH_ENABLED")
+    if env_ws is not None:
+        if "web_search" not in raw_data or not isinstance(raw_data["web_search"], dict):
+            raw_data["web_search"] = {}
+        raw_data["web_search"]["enabled"] = env_ws.strip().lower() in ("1", "true", "yes", "on")
     return AppSettings.model_validate(raw_data)
 
 

@@ -10,7 +10,6 @@ from backend.models.standard_model import IndianStandard
 
 logger = get_logger("engine.reranker_service")
 
-# Type alias for standard search result tuples
 _CandidateTuple = tuple[IndianStandard, float, list[str]]
 
 
@@ -27,30 +26,31 @@ class RerankerService:
 
     def _load_model(self) -> None:
         """Lazy-load the cross-encoder model onto CUDA if available, else CPU."""
-        if self._load_failed or RerankerService._load_failed:
-            return
-        if self._cross_encoder is not None:
-            return
-        if RerankerService._cross_encoder is not None:
-            self._cross_encoder = RerankerService._cross_encoder
+        if self._load_failed or RerankerService._load_failed or self._cross_encoder or RerankerService._cross_encoder:
+            self._cross_encoder = self._cross_encoder or RerankerService._cross_encoder
             return
         try:
+            from pathlib import Path
             from sentence_transformers import CrossEncoder
+            from backend.config.paths import PROJECT_ROOT
 
             device = "cuda:0" if (app_settings.ai_engine.enable_gpu and torch.cuda.is_available()) else "cpu"
-            logger.info(f"Loading cross-encoder model '{self._model_name}' on {device}...")
+            target = self._model_name if Path(self._model_name).is_absolute() else str(PROJECT_ROOT / self._model_name)
+            weights = Path(target) / "model.safetensors"
+            if not (weights.exists() and weights.stat().st_size > 1_000_000_000):
+                fallback = str(PROJECT_ROOT / "llm" / "bge-reranker-small")
+                if Path(fallback).exists():
+                    logger.info(f"Reranker '{target}' not yet ready; using fallback '{fallback}'")
+                    target = fallback
+
+            logger.info(f"Loading cross-encoder model '{target}' on {device}...")
             kwargs = {"torch_dtype": torch.float16} if "cuda" in device else {}
-            model = CrossEncoder(self._model_name, device=device, model_kwargs=kwargs)
-            self._cross_encoder = model
-            RerankerService._cross_encoder = model
-            logger.info(f"Cross-encoder model '{self._model_name}' loaded successfully on {device}.")
-        except (ImportError, RuntimeError, OSError, ValueError, AssertionError) as exc:
-            self._load_failed = True
-            RerankerService._load_failed = True
-            logger.warning(
-                f"Cross-encoder model failed to load ({type(exc).__name__}: {exc}). "
-                "Falling back to hybrid-only ranking."
-            )
+            model = CrossEncoder(target, device=device, model_kwargs=kwargs)
+            self._cross_encoder = RerankerService._cross_encoder = model
+            logger.info(f"Cross-encoder model '{target}' loaded successfully on {device}.")
+        except Exception as exc:
+            self._load_failed = RerankerService._load_failed = True
+            logger.warning(f"Cross-encoder load failed ({type(exc).__name__}: {exc}). Falling back to hybrid.")
 
     def preload(self) -> bool:
         """Preload cross-encoder model weights into GPU VRAM."""
@@ -90,9 +90,9 @@ class RerankerService:
             logger.warning(f"Cross-encoder prediction failed ({type(exc).__name__}: {exc})")
             return candidates[:top_k]
 
-        scored: list[tuple[float, _CandidateTuple]] = []
-        for idx, (std, _hscore, reasons) in enumerate(candidates):
-            ce_score = float(scores[idx])
-            scored.append((ce_score, (std, ce_score, reasons + [f"Cross-Encoder reranked (score: {ce_score:.3f})"])))
-        scored.sort(key=lambda item: item[0], reverse=True)
+        scored = [
+            (float(scores[i]), (s, float(scores[i]), r + [f"Cross-Encoder reranked ({float(scores[i]):.3f})"]))
+            for i, (s, _, r) in enumerate(candidates)
+        ]
+        scored.sort(key=lambda x: x[0], reverse=True)
         return [entry for _, entry in scored[:top_k]]

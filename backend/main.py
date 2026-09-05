@@ -1,10 +1,11 @@
 """FastAPI application entry point for Indian Standards AI Recommendation Engine."""
 from __future__ import annotations
+
 from contextlib import asynccontextmanager
-import time
-from typing import Any, AsyncGenerator
-from fastapi import FastAPI, Request, Response
+from typing import AsyncGenerator
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 import uvicorn
 from backend.api.distributed_pipeline_router import router as distributed_router
@@ -14,10 +15,13 @@ from backend.api.pipeline_router import router as pipeline_router
 from backend.api.recommendation_router import router as rec_router
 from backend.api.standards_router import router as std_router
 from backend.api.tender_router import router as tender_router
+from backend.api.voice_agent_router import router as voice_router
+from backend.config.paths import TTS_CACHE_DIR
 from backend.config.settings import app_settings
 from backend.data.seed_generator import generate_seed_data
 from backend.engine.model_warmup import warmup_backend_ai_models
 from backend.logger.app_logger import get_logger, setup_logging
+from backend.middleware.telemetry import log_requests_middleware
 
 logger = get_logger("backend.main")
 
@@ -48,24 +52,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.middleware("http")
-async def log_requests_middleware(request: Request, call_next: Any) -> Response:
-    """Log all incoming HTTP requests and response performance metrics."""
-    start_time = time.perf_counter()
-    client_ip = request.client.host if request.client else "127.0.0.1"
-    logger.info(f"--> {request.method} {request.url.path} [Client: {client_ip}]")
-    try:
-        response = await call_next(request)
-        elapsed_ms = (time.perf_counter() - start_time) * 1000.0
-        logger.info(f"<-- {request.method} {request.url.path} [{response.status_code}] ({elapsed_ms:.2f}ms)")
-        return response
-    except Exception as exc:
-        elapsed_ms = (time.perf_counter() - start_time) * 1000.0
-        logger.error(f"<-- {request.method} {request.url.path} [EXCEPTION: {type(exc).__name__} - {exc}] ({elapsed_ms:.2f}ms)")
-        raise
-
+app.middleware("http")(log_requests_middleware)
 
 app.include_router(rec_router)
 app.include_router(tender_router)
@@ -74,7 +61,10 @@ app.include_router(gem_router)
 app.include_router(llm_router)
 app.include_router(pipeline_router)
 app.include_router(distributed_router)
+app.include_router(voice_router)
 
+TTS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/api/v1/voice/audio", StaticFiles(directory=str(TTS_CACHE_DIR)), name="voice_audio")
 
 
 @app.get("/api/v1/health")

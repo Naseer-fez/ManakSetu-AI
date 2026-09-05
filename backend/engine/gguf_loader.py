@@ -20,7 +20,12 @@ def instantiate_llama(
     logger.info(f"Local GGUF: Loading '{model_path}' (ctx={context_size}, gpu={gpu_layers})...")
     
     extra_kwargs: dict[str, Any] = {}
-    if context_size >= 16384:
+    if context_size >= 8192:
+        q4 = getattr(llama_cpp, "GGML_TYPE_Q4_0", 2)
+        extra_kwargs["type_k"] = q4
+        extra_kwargs["type_v"] = q4
+        logger.info(f"Local GGUF: Enabled 4-bit quantized KV cache (Q4_0) for {context_size} context.")
+    elif context_size >= 4096:
         q8 = getattr(llama_cpp, "GGML_TYPE_Q8_0", 8)
         extra_kwargs["type_k"] = q8
         extra_kwargs["type_v"] = q8
@@ -30,9 +35,9 @@ def instantiate_llama(
         model_path=model_path,
         n_ctx=context_size,
         n_threads=threads,
-        n_gpu_layers=-1 if gpu_layers > 0 else 0, # Maximize GPU usage
-        offload_kqv=(gpu_layers > 0),
-        flash_attn=(gpu_layers > 0),  # Maximize performance on Ampere/RTX 3050
+        n_gpu_layers=gpu_layers if gpu_layers is not None else 0,
+        offload_kqv=(gpu_layers != 0),
+        flash_attn=(gpu_layers != 0),  # Maximize performance on Ampere/RTX 3050
         chat_format=chat_format,
         verbose=False,
         **extra_kwargs,

@@ -22,7 +22,7 @@ ai_engine:
   top_k_recommendations: 5
   hybrid_alpha: 0.65
   enable_gpu: true
-  reranker_model: "llm/bge-reranker-small"
+  reranker_model: "llm/bge-reranker-v2-m3"
   reranker_candidate_pool: 25
   domain_expansions_file: "backend/config/domain_expansions.yaml"
 
@@ -32,7 +32,7 @@ llm:
   model_path: "llm/Qwen2.5-7B-Instruct-Q4_K_M.gguf"
   n_ctx: 32768
   n_threads: 4
-  n_gpu_layers: 24
+  n_gpu_layers: 18
   chat_format: "chatml"
   api_key_env_var: "GEMINI_API_KEY"
   openrouter_api_key_env_var: "OPENROUTER_API_KEY"
@@ -47,9 +47,19 @@ cache:
   similarity_threshold: 0.95
 
 voice:
+  stt_provider: "faster_whisper"
   stt_model_path: "llm/faster-whisper-tiny"
+  stt_device: "cpu"
+  stt_compute_type: "int8"
+  stt_beam_size: 1
+  tts_provider: "mms_vits"
   tts_eng_model_path: "llm/mms-tts-eng"
   tts_hin_model_path: "llm/mms-tts-hin"
+  tts_device: "cpu"
+  default_language: "auto"
+  max_audio_duration_sec: 60
+  audio_sample_rate: 16000
+  tts_cache_dir: "backend/data/tts_cache"
 
 bis_scraper:
   base_url: "https://www.services.bis.gov.in/php/BIS_2.0/bisconnect/knowyourstandards/indian_standards/isdetails"
@@ -76,3 +86,15 @@ distributed_reasoning:
   mac_available: true
   mac_endpoint: "http://localhost:5000/reason"
   local_preprocessor_model: "llm/Qwen2.5-3B-Instruct-Q4_K_M.gguf"
+
+web_search:
+  enabled: true
+  provider: "brave"
+  api_key_env_var: "BRAVE_SEARCH_API_KEY"
+  request_timeout_sec: 15
+  fast_answer_top_k: 2
+  fast_answer_max_tokens: 300
+  heavy_reasoning_top_k: 3
+  heavy_reasoning_max_tokens: 500
+  cache_ttl_hours: 24
+  guardrail_config: "backend/config/web_search_domains.yaml"

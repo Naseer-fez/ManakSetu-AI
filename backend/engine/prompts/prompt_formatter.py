@@ -18,7 +18,8 @@ def format_chunk_excerpts(chunks: list[Any] | None) -> str:
         fn = getattr(c, "file_name", None) or (c.get("file_name") if isinstance(c, dict) else "Doc")
         pg = getattr(c, "page_number", None) or (c.get("page_number") if isinstance(c, dict) else 1)
         cl = getattr(c, "clause", None) or (c.get("clause") if isinstance(c, dict) else None)
-        snip = (getattr(c, "snippet", None) or (c.get("snippet") if isinstance(c, dict) else ""))[:250].strip()
+        raw_snip = getattr(c, "snippet", None) or getattr(c, "text", None) or (c.get("snippet") or c.get("text") if isinstance(c, dict) else "")
+        snip = str(raw_snip or "")[:250].strip()
         cl_str = f", Clause {cl}" if cl else ""
         lines.append(f"- [Source: {fn}, Page {pg}{cl_str}]: {snip}")
     return "\n".join(lines) if lines else NOT_PROVIDED
@@ -30,17 +31,15 @@ def format_image_context(img: Any | None) -> str:
         return NOT_PROVIDED
     if isinstance(img, dict):
         cat = img.get("category") or img.get("classification")
-        txt = img.get("extracted_text")
-        conf = img.get("confidence")
         parts = [f"Classification: {cat}"] if cat else []
-        if conf is not None:
-            parts.append(f"Confidence: {conf}")
-        if txt:
-            parts.append(f"Extracted Text/Callouts: {txt[:300]}")
+        if img.get("confidence") is not None:
+            parts.append(f"Confidence: {img.get('confidence')}")
+        if img.get("extracted_text"):
+            parts.append(f"Extracted Text/Callouts: {str(img.get('extracted_text'))[:300]}")
         return "\n".join(parts) if parts else NOT_PROVIDED
     cat = getattr(img, "category", None)
     txt = getattr(img, "extracted_text", None)
-    return f"Classification: {cat}\nExtracted Text: {txt[:300]}" if (cat or txt) else NOT_PROVIDED
+    return f"Classification: {cat}\nExtracted Text: {str(txt)[:300]}" if (cat or txt) else NOT_PROVIDED
 
 
 def build_prompt_context(
@@ -84,16 +83,12 @@ def safe_inject(template: str, context: dict[str, str]) -> str:
 
 
 def format_evaluation_prompt(**kwargs: Any) -> str:
-    """Format EVALUATION_PROMPT_TEMPLATE using safe placeholder injection."""
     return safe_inject(EVALUATION_PROMPT_TEMPLATE, build_prompt_context(**kwargs))
 
 
 def format_testing_matrix_prompt(**kwargs: Any) -> str:
-    """Format TESTING_MATRIX_PROMPT_TEMPLATE using safe placeholder injection."""
     return safe_inject(TESTING_MATRIX_PROMPT_TEMPLATE, build_prompt_context(**kwargs))
 
 
 def format_tender_clause_prompt(**kwargs: Any) -> str:
-    """Format TENDER_CLAUSE_PROMPT_TEMPLATE using safe placeholder injection."""
     return safe_inject(TENDER_CLAUSE_PROMPT_TEMPLATE, build_prompt_context(**kwargs))
-

@@ -46,6 +46,14 @@ def warmup_backend_ai_models() -> float:
         if hasattr(llm_prov, "warmup"):
             llm_prov.warmup()
 
+    # 4. Warm up voice models
+    try:
+        from backend.engine.voice.provider_factory import VoiceProviderFactory
+        VoiceProviderFactory.get_stt_provider().preload()
+        VoiceProviderFactory.get_tts_provider().preload()
+    except Exception as exc:
+        logger.warning(f"Voice model preloading failed: {exc}")
+
     try:
         import torch
         if torch.cuda.is_available():

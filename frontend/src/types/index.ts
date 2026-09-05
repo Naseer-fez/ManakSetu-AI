@@ -138,3 +138,41 @@ export interface PipelineAnswerResponse {
   confidence_score: number;
 }
 
+export interface DocumentChunkEvidence {
+  file_name: string;
+  page_number: number;
+  clause?: string | null;
+  snippet: string;
+  score?: number;
+}
+
+export interface VoiceChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  audioUrl?: string;
+  detectedLanguage?: string;
+  timestamp: string;
+}
+
+export interface VoiceChatResponse {
+  transcribed_text: string;
+  detected_language: string;
+  llm_response: string;
+  audio_url: string;
+  mode: "fast" | "thinking";
+  document_evidences?: DocumentChunkEvidence[];
+  processing_time_ms: number;
+}
+
+export interface VoiceStatusResponse {
+  stt_available: boolean;
+  stt_provider: string;
+  tts_available: boolean;
+  tts_provider: string;
+  stt_device: string;
+  tts_device: string;
+  default_language: string;
+}
+
+

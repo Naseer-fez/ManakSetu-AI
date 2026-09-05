@@ -13,6 +13,8 @@ from backend.engine.llm_service import get_llm_provider
 from backend.engine.orchestrator_helpers import (
     build_orchestrator_prompt, count_history_tokens, synthesize_contract_response,
 )
+from backend.engine.web_search_guardrail import WebSearchGuardrail
+from backend.engine.web_search_service import WebSearchService
 from backend.logger.app_logger import get_logger
 from backend.models.llm_contracts import LlmInputContract, LlmStandardizedResponse, PipelineAnswerResponse
 

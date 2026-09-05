@@ -43,5 +43,7 @@ class PipelineAnswerResponse(BaseModel):
     synthesized_context: str = ""
     summarized_history: str = ""
     confidence_score: float = 0.95
+    web_search_used: bool = False
+    web_sources: list[str] = Field(default_factory=list)
 
 

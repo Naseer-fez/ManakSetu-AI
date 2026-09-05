@@ -34,7 +34,12 @@ SEMANTIC_CACHE_DB_PATH: Path = Path(os.getenv("SEMANTIC_CACHE_DB_PATH", str(DATA
 # AI Models & LLM directory
 LLM_DIR: Path = Path(os.getenv("LLM_DIR", str(PROJECT_ROOT / "llm")))
 EMBEDDING_MODEL_PATH: Path = Path(os.getenv("EMBEDDING_MODEL_PATH", str(LLM_DIR / "paraphrase-multilingual-MiniLM-L12-v2")))
-RERANKER_MODEL_PATH: Path = Path(os.getenv("RERANKER_MODEL_PATH", str(LLM_DIR / "bge-reranker-small")))
+RERANKER_MODEL_PATH: Path = Path(
+    os.getenv(
+        "RERANKER_MODEL_PATH",
+        str(LLM_DIR / "bge-reranker-v2-m3") if (LLM_DIR / "bge-reranker-v2-m3").exists() else str(LLM_DIR / "bge-reranker-small")
+    )
+)
 DEFAULT_GGUF_MODEL_PATH: Path = Path(os.getenv("DEFAULT_GGUF_MODEL_PATH", str(LLM_DIR / "Qwen2.5-7B-Instruct-Q4_K_M.gguf")))
 GRAMMAR_FILE_PATH: Path = Path(os.getenv("GRAMMAR_FILE_PATH", str(BACKEND_DIR / "engine" / "grammars" / "bis_output.gbnf")))
 
@@ -42,6 +47,7 @@ GRAMMAR_FILE_PATH: Path = Path(os.getenv("GRAMMAR_FILE_PATH", str(BACKEND_DIR / 
 STT_MODEL_PATH: Path = Path(os.getenv("STT_MODEL_PATH", str(LLM_DIR / "faster-whisper-tiny")))
 TTS_ENG_MODEL_PATH: Path = Path(os.getenv("TTS_ENG_MODEL_PATH", str(LLM_DIR / "mms-tts-eng")))
 TTS_HIN_MODEL_PATH: Path = Path(os.getenv("TTS_HIN_MODEL_PATH", str(LLM_DIR / "mms-tts-hin")))
+TTS_CACHE_DIR: Path = Path(os.getenv("TTS_CACHE_DIR", str(DATA_DIR / "tts_cache")))
 
 # Vector DB directories
 VECTORDB_DIR: Path = Path(os.getenv("VECTORDB_PATH", str(PROJECT_ROOT / "vectordb")))
@@ -56,6 +62,7 @@ def ensure_runtime_directories() -> None:
         LOGS_DIR,
         UPLOADS_DIR,
         CACHE_DIR,
+        TTS_CACHE_DIR,
         VECTORDB_DIR,
         VECTORDB_DATA_DIR,
         VECTORDB_CHROMA_DIR,

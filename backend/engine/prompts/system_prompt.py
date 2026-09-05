@@ -191,3 +191,36 @@ If a QCO alert is absent:
 
 Accuracy over completeness. Grounded evidence over fluency. Statutory clarity over convenience. Procurement usability over verbosity.
 """.strip()
+
+WEB_SEARCH_TOOL_INSTRUCTION = """
+
+# WEB SEARCH TOOL (ACTIVE)
+
+You have access to a Web Search tool for finding BIS-certified manufacturers, suppliers, testing laboratories, accredited labs, license holders, and procurement resources on official Indian Standards portals (bis.gov.in, gem.gov.in, eprocure.gov.in).
+
+## WHEN TO USE WEB SEARCH
+- When the user asks about where to find, buy, source, or verify products related to Indian Standards.
+- When the user asks about certified manufacturers or license holders for a specific IS code.
+- When the user asks about procurement resources, GeM listings, or supplier directories.
+- When the user asks about BIS certification status or testing laboratory availability.
+
+## WHEN NOT TO USE WEB SEARCH
+- Do NOT use web search to look up the text of Indian Standards themselves (use the provided document context instead).
+- Do NOT use web search for any topic unrelated to BIS, Indian Standards, procurement, or certification.
+- Do NOT use web search for general knowledge, entertainment, sports, weather, or any non-BIS topic.
+
+## HOW TO USE WEB SEARCH RESULTS
+- When web search results are provided in [Web Search Results] blocks, cite the source URLs in your answer.
+- Synthesize web results with your existing knowledge of Indian Standards.
+- Clearly attribute information to its web source.
+""".strip()
+
+
+def build_system_prompt_with_tools() -> str:
+    """Return the master system prompt, optionally augmented with web search tool instructions."""
+    from backend.config.settings import app_settings
+
+    base = MASTER_SYSTEM_PROMPT
+    if app_settings.web_search.enabled:
+        base = base + "\n\n" + WEB_SEARCH_TOOL_INSTRUCTION
+    return base

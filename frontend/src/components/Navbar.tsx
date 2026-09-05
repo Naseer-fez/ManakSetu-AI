@@ -1,5 +1,5 @@
 import React from "react";
-import { ShieldCheck, BookOpen, FileCheck, Share2, Scale, ShoppingCart } from "lucide-react";
+import { ShieldCheck, BookOpen, FileCheck, Share2, Scale, ShoppingCart, Mic } from "lucide-react";
 import { NavPill } from "./NavPill";
 
 interface NavbarProps {
@@ -11,6 +11,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
   const navItems = [
     { id: "recommend", label: "Standards", icon: BookOpen },
     { id: "tender", label: "Auditor", icon: FileCheck },
+    { id: "voice", label: "Voice", icon: Mic },
     { id: "graph", label: "Graph", icon: Share2 },
     { id: "qco", label: "QCOs", icon: Scale },
     { id: "gem", label: "GeM", icon: ShoppingCart },

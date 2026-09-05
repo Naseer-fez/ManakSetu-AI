@@ -5,6 +5,7 @@ import { TenderAnalyzerView } from "./components/TenderAnalyzerView";
 import { KnowledgeGraphView } from "./components/KnowledgeGraphView";
 import { QcoExplorerView } from "./components/QcoExplorerView";
 import { GemSimulatorView } from "./components/GemSimulatorView";
+import { VoiceAssistantView } from "./components/VoiceAssistantView";
 import { AssistantChatDrawer } from "./components/AssistantChatDrawer";
 
 export const App: React.FC = () => {
@@ -22,6 +23,7 @@ export const App: React.FC = () => {
       >
         {activeTab === "recommend" && <RecommendationTab />}
         {activeTab === "tender" && <TenderAnalyzerView setPdfText={setPdfText} />}
+        {activeTab === "voice" && <VoiceAssistantView />}
         {activeTab === "graph" && <KnowledgeGraphView />}
         {activeTab === "qco" && <QcoExplorerView />}
         {activeTab === "gem" && <GemSimulatorView />}
