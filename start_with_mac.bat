@@ -35,10 +35,10 @@ echo [OK] Frontend Directory:  %FRONTEND_DIR%
 echo.
 
 echo [1/3] Launching Mock Mac Reasoning Node (Port 5000)...
-start "BIS-SpecAI Mock Mac Reasoning Node (Port 5000)" cmd /k ".venv\Scripts\python.exe -m backend.mac_mock_server || pause"
+start "BIS-SpecAI Mock Mac Reasoning Node (Port 5000)" cmd /k "cd /d "%ROOT_DIR%" && call "%VENV_DIR%\Scripts\activate.bat" && python -m backend.mac_mock_server || pause"
 
 echo [2/3] Launching Backend Server (Port 8000, Distributed Mac Mode)...
-start "BIS-SpecAI Backend (Port 8000) [Mac Distributed]" cmd /k "set MAC_AVAILABLE=true && .venv\Scripts\python.exe run_all.py || pause"
+start "BIS-SpecAI Backend (Port 8000) [Mac Distributed]" cmd /k "cd /d "%ROOT_DIR%" && call "%VENV_DIR%\Scripts\activate.bat" && set "MAC_AVAILABLE=true" && python run_all.py || pause"
 
 echo [3/3] Launching Frontend UI (Port 5173)...
 start "BIS-SpecAI Frontend (Port 5173)" cmd /k "cd /d "%FRONTEND_DIR%" && npm run dev || pause"

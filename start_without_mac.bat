@@ -35,7 +35,7 @@ echo [OK] Frontend Directory:  %FRONTEND_DIR%
 echo.
 
 echo [1/2] Launching Backend Server (Port 8000, Standalone Local LLM)...
-start "BIS-SpecAI Backend (Port 8000) [Standalone Local]" cmd /k "set MAC_AVAILABLE=false && .venv\Scripts\python.exe run_all.py || pause"
+start "BIS-SpecAI Backend (Port 8000) [Standalone Local]" cmd /k "cd /d "%ROOT_DIR%" && call "%VENV_DIR%\Scripts\activate.bat" && set "MAC_AVAILABLE=false" && python run_all.py || pause"
 
 echo [2/2] Launching Frontend UI (Port 5173)...
 start "BIS-SpecAI Frontend (Port 5173)" cmd /k "cd /d "%FRONTEND_DIR%" && npm run dev || pause"
