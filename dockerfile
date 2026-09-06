@@ -1,9 +1,12 @@
-from python 3.12
+FROM python:3.12-slim
 
-WORKDIR app/
+WORKDIR /app
 
-run pip install -r requiremnts.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-copy . . 
+COPY . .
 
-EXPOSE 5
+EXPOSE 8000
+
+CMD ["python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

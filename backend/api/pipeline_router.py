@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import io
 from fastapi import APIRouter, File, Form, Response, UploadFile
 from pydantic import BaseModel
 from backend.engine.pipeline import PipelineResponse, RecommendationPipeline

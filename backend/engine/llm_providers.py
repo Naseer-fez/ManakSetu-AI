@@ -74,7 +74,7 @@ class GeminiLlmProvider(BaseLlmProvider):
                                     yield text
                                 except (json.JSONDecodeError, KeyError, IndexError):
                                     pass
-        except Exception:
+        except (httpx.HTTPError, OSError, ValueError, json.JSONDecodeError, KeyError, IndexError):
             async for chunk in self._fallback.generate_text_stream(prompt, system_prompt): yield chunk
 
 
@@ -122,7 +122,7 @@ class OpenAiLlmProvider(BaseLlmProvider):
                                     if delta: yield delta
                                 except (json.JSONDecodeError, KeyError, IndexError):
                                     pass
-        except Exception:
+        except (httpx.HTTPError, OSError, ValueError, json.JSONDecodeError, KeyError, IndexError):
             async for chunk in self._fallback.generate_text_stream(prompt, system_prompt): yield chunk
 
 
@@ -171,7 +171,7 @@ class OpenRouterLlmProvider(BaseLlmProvider):
                                     if delta: yield delta
                                 except (json.JSONDecodeError, KeyError, IndexError):
                                     pass
-        except Exception:
+        except (httpx.HTTPError, OSError, ValueError, json.JSONDecodeError, KeyError, IndexError):
             async for chunk in self._fallback.generate_text_stream(prompt, system_prompt): yield chunk
 
 
@@ -210,7 +210,7 @@ class RemoteMacLlmProvider(BaseLlmProvider):
                     async for line in res.aiter_lines():
                         if line:
                             yield line + "\n"
-        except Exception:
+        except (httpx.HTTPError, OSError, ValueError, json.JSONDecodeError, KeyError, IndexError):
             async for chunk in self._fallback.generate_text_stream(prompt, system_prompt): yield chunk
 
 

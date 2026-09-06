@@ -1,7 +1,7 @@
 """Semantic query cache using SQLite for sub-5ms responses on repeated/similar queries."""
 from __future__ import annotations
 
-import json
+import asyncio
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS semantic_cache (
     hit_count INTEGER DEFAULT 0
 )
 """
+
+_MAX_CACHE_ENTRIES = 5000
 
 
 class SemanticCacheService:
@@ -59,7 +61,7 @@ class SemanticCacheService:
         await self._ensure_table()
         t0 = time.perf_counter()
         thr = threshold if threshold is not None else self._threshold
-        query_vec = self._embed.get_embedding(query)
+        query_vec = await asyncio.to_thread(self._embed.get_embedding, query)
 
         async with aiosqlite.connect(self._db_path) as db:
             cursor = await db.execute(
@@ -92,7 +94,7 @@ class SemanticCacheService:
     async def store_cache(self, query: str, response: PipelineResponse) -> None:
         """Persist a query-response pair into the semantic cache."""
         await self._ensure_table()
-        query_vec = self._embed.get_embedding(query)
+        query_vec = await asyncio.to_thread(self._embed.get_embedding, query)
         emb_blob = query_vec.astype(np.float32).tobytes()
         resp_json = response.model_dump_json()
         now = datetime.now(timezone.utc).isoformat()
@@ -102,6 +104,9 @@ class SemanticCacheService:
                 "INSERT INTO semantic_cache (query_text, query_embedding, response_json, created_at) VALUES (?, ?, ?, ?)",
                 (query, emb_blob, resp_json, now),
             )
+            count = await db.execute_fetchall("SELECT COUNT(*) FROM semantic_cache")
+            if count and count[0][0] > _MAX_CACHE_ENTRIES:
+                await db.execute("DELETE FROM semantic_cache WHERE id IN (SELECT id FROM semantic_cache ORDER BY hit_count ASC, created_at ASC LIMIT ?)", (count[0][0] - _MAX_CACHE_ENTRIES,))
             await db.commit()
         logger.info(f"Cache STORE for query: {query[:60]}...")
 

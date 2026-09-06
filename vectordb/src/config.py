@@ -18,7 +18,7 @@ COLLECTION_NAME = "document_chunks"
 # - Embedding Dimension: 384
 # - Why selected: State-of-the-art balance between semantic search accuracy and fast local CPU inference.
 # - Memory requirements: ~200-300MB RAM.
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 
 # Chunking Settings
 CHUNK_SIZE = 500      # Tokens target per chunk (approx 2000 characters)

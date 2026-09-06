@@ -12,9 +12,6 @@ from backend.engine.llm_providers import (
 )
 from backend.engine.llm_service import LlmService, get_llm_provider
 from backend.ingestion.standards_loader import StandardsLoader
-from backend.main import app
-
-client = TestClient(app)
 
 
 @pytest.mark.asyncio
@@ -49,6 +46,7 @@ class MockServiceLlmProvider(BaseLlmProvider):
         yield "Grounded BIS technical reasoning and test conformance."
 
 
+
 @pytest.mark.asyncio
 async def test_llm_service_domain_methods() -> None:
     """Test LLM service domain explanation and Q&A."""
@@ -62,15 +60,52 @@ async def test_llm_service_domain_methods() -> None:
     )
     assert len(explanation) > 0
 
+    # Valid domain query
     answer = await service.answer_procurement_query(
         question="What is the standard for TMT rebars?",
         context_standards=[std],
     )
     assert len(answer) > 0
+    assert "Grounded BIS technical reasoning" in answer
+
+    # Guardrail fast path greeting
+    greet_answer = await service.answer_procurement_query(
+        question="Hello",
+        context_standards=[std],
+    )
+    assert "BIS assistant" in greet_answer
+
+    # Guardrail rejection for off-topic query
+    rejection_answer = await service.answer_procurement_query(
+        question="write a poem about winter",
+        context_standards=[std],
+    )
+    assert "only answer questions related to Indian Standards" in rejection_answer
+
+    # Polymorphic dict chat history
+    history = [{"role": "user", "content": "Prior query"}, {"role": "assistant", "content": "Prior reply"}]
+    hist_answer = await service.answer_procurement_query(
+        question="What is the standard for TMT rebars?",
+        context_standards=[std],
+        chat_history=history,
+    )
+    assert len(hist_answer) > 0
+
+    # Stream with polymorphic dict chat history
+    stream_chunks = [
+        c async for c in service.answer_procurement_query_stream(
+            question="What is the standard for TMT rebars?",
+            context_standards=[std],
+            chat_history=history,
+        )
+    ]
+    assert len(stream_chunks) > 0
 
 
 def test_llm_api_endpoints(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test REST API routes for LLM explanation and assistant."""
+    from backend.main import app
+    client = TestClient(app)
     from backend.api.llm_router import llm_service
     monkeypatch.setattr(llm_service, "_provider", MockServiceLlmProvider())
 

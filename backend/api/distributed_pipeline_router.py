@@ -1,8 +1,7 @@
 """Router for distributed AI pipelines: Fast Answer (Local 2B) and Heavy Reasoning (Mac Offload)."""
 from __future__ import annotations
 import json
-from typing import Any
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, UploadFile
 from pydantic import BaseModel, Field
 from backend.engine.llm_orchestrator import LlmOrchestrator
 from backend.models.llm_contracts import PipelineAnswerResponse

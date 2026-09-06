@@ -271,3 +271,101 @@ class TestAsyncGeneration:
         # Verify natural prose AND constrained IS code coexist
         assert "Natural English prose" in combined
         assert "IS 456:2000" in combined
+
+
+# ---------------------------------------------------------------------------
+# Repetition guard tests
+# ---------------------------------------------------------------------------
+
+class TestRepetitionGuards:
+    """Verify that sampling kwargs are passed and runtime repeat guard halts degeneration."""
+
+    def test_sampling_kwargs_passed_to_sync_generate(self, mock_settings: Any) -> None:
+        """_sync_generate passes repeat_penalty and friends to create_chat_completion."""
+        _patched, _gbnf_path = mock_settings
+        _patched.llm.repeat_penalty = 1.18
+        _patched.llm.frequency_penalty = 0.1
+        _patched.llm.presence_penalty = 0.1
+        _patched.llm.repeat_last_n = 256
+        _patched.llm.top_p = 0.9
+
+        mock_model = MagicMock()
+        mock_model.create_chat_completion.return_value = {
+            "choices": [{"message": {"content": "Clean output."}}]
+        }
+
+        provider = LocalGgufLlmProvider.__new__(LocalGgufLlmProvider)
+        provider._grammar = None
+        provider._grammar_loaded = False
+        provider._model = mock_model
+        provider._lock = __import__("threading").Lock()
+
+        provider._sync_generate("test prompt", "system")
+
+        call_kwargs = mock_model.create_chat_completion.call_args
+        assert call_kwargs.kwargs.get("repeat_penalty") == 1.18
+        assert call_kwargs.kwargs.get("frequency_penalty") == 0.1
+        assert call_kwargs.kwargs.get("presence_penalty") == 0.1
+        assert call_kwargs.kwargs.get("repeat_last_n") == 256
+        assert call_kwargs.kwargs.get("top_p") == 0.9
+
+    def test_stream_halts_on_runaway_repetition(self, mock_settings: Any) -> None:
+        """_sync_generate_stream stops when the same token repeats too many times."""
+        _patched, _gbnf_path = mock_settings
+        _patched.llm.repeat_penalty = 1.18
+        _patched.llm.frequency_penalty = 0.1
+        _patched.llm.presence_penalty = 0.1
+        _patched.llm.repeat_last_n = 256
+        _patched.llm.top_p = 0.9
+
+        # Simulate a degenerate stream: "plug" repeated 15 times
+        degenerate_chunks = [
+            {"choices": [{"delta": {"content": "plug"}}]}
+            for _ in range(15)
+        ]
+        mock_model = MagicMock()
+        mock_model.create_chat_completion.return_value = iter(degenerate_chunks)
+
+        provider = LocalGgufLlmProvider.__new__(LocalGgufLlmProvider)
+        provider._grammar = None
+        provider._grammar_loaded = False
+        provider._model = mock_model
+        provider._lock = __import__("threading").Lock()
+
+        chunks = list(provider._sync_generate_stream("test", "system"))
+
+        # Should have halted well before yielding all 15 "plug" tokens
+        assert any("repetitive output detected" in c for c in chunks)
+        plug_count = sum(1 for c in chunks if c.strip() == "plug")
+        assert plug_count <= 8  # _MAX_CONSECUTIVE_REPEATS
+
+    def test_stream_passes_non_repetitive_content(self, mock_settings: Any) -> None:
+        """Normal diverse content streams through without being halted."""
+        _patched, _gbnf_path = mock_settings
+        _patched.llm.repeat_penalty = 1.18
+        _patched.llm.frequency_penalty = 0.1
+        _patched.llm.presence_penalty = 0.1
+        _patched.llm.repeat_last_n = 256
+        _patched.llm.top_p = 0.9
+
+        normal_chunks = [
+            {"choices": [{"delta": {"content": "IS 1786:2008 "}}]},
+            {"choices": [{"delta": {"content": "applies to "}}]},
+            {"choices": [{"delta": {"content": "TMT bars "}}]},
+            {"choices": [{"delta": {"content": "for construction."}}]},
+        ]
+        mock_model = MagicMock()
+        mock_model.create_chat_completion.return_value = iter(normal_chunks)
+
+        provider = LocalGgufLlmProvider.__new__(LocalGgufLlmProvider)
+        provider._grammar = None
+        provider._grammar_loaded = False
+        provider._model = mock_model
+        provider._lock = __import__("threading").Lock()
+
+        chunks = list(provider._sync_generate_stream("test", "system"))
+
+        combined = "".join(chunks)
+        assert "IS 1786:2008" in combined
+        assert "TMT bars" in combined
+        assert "repetitive output detected" not in combined

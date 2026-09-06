@@ -1,7 +1,7 @@
 import pandas as pd
 import logging
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from .config import CHUNK_SIZE, CHUNK_OVERLAP
+from vectordb.src.config import CHUNK_SIZE, CHUNK_OVERLAP
 
 logger = logging.getLogger(__name__)
 

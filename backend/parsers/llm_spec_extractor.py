@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from backend.engine.llm_service import get_llm_service
+from backend.engine.llm_service import get_llm_service, get_llm_provider
 from backend.ingestion.standards_loader import StandardsLoader
 from backend.models.standard_model import StandardStatus
 from backend.models.tender_model import ComplianceIssue, ExtractedLineItem
@@ -14,6 +14,7 @@ class LlmSpecExtractor:
     def __init__(self, loader: StandardsLoader | None = None) -> None:
         self._loader = loader or StandardsLoader()
         self._llm_service = get_llm_service()
+        self._provider = get_llm_provider()
         self._llm_findings = []
 
     async def extract_items(self, text: str) -> list[ExtractedLineItem]:
@@ -49,7 +50,7 @@ class LlmSpecExtractor:
 
         prompt = f"Tender document text:\n{text}\n\nExecute the flow and output the JSON object."
 
-        response_text = await self._llm_service._provider.generate_text(prompt, system_prompt)
+        response_text = await self._provider.generate_text(prompt, system_prompt)
 
         try:
             clean_text = response_text.strip()

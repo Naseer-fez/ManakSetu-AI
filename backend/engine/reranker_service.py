@@ -1,9 +1,11 @@
 """Cross-encoder reranker service for second-stage candidate scoring."""
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 import torch
 
+from backend.config.paths import PROJECT_ROOT, RERANKER_MODEL_PATH
 from backend.config.settings import app_settings
 from backend.logger.app_logger import get_logger
 from backend.models.standard_model import IndianStandard
@@ -30,25 +32,21 @@ class RerankerService:
             self._cross_encoder = self._cross_encoder or RerankerService._cross_encoder
             return
         try:
-            from pathlib import Path
             from sentence_transformers import CrossEncoder
-            from backend.config.paths import PROJECT_ROOT
 
             device = "cuda:0" if (app_settings.ai_engine.enable_gpu and torch.cuda.is_available()) else "cpu"
             target = self._model_name if Path(self._model_name).is_absolute() else str(PROJECT_ROOT / self._model_name)
             weights = Path(target) / "model.safetensors"
             if not (weights.exists() and weights.stat().st_size > 1_000_000_000):
-                fallback = str(PROJECT_ROOT / "llm" / "bge-reranker-small")
-                if Path(fallback).exists():
-                    logger.info(f"Reranker '{target}' not yet ready; using fallback '{fallback}'")
-                    target = fallback
+                target = str(RERANKER_MODEL_PATH) if RERANKER_MODEL_PATH.exists() else str(PROJECT_ROOT / "llm" / "bge-reranker-small")
+                logger.info(f"Using reranker model target '{target}'")
 
             logger.info(f"Loading cross-encoder model '{target}' on {device}...")
             kwargs = {"torch_dtype": torch.float16} if "cuda" in device else {}
             model = CrossEncoder(target, device=device, model_kwargs=kwargs)
             self._cross_encoder = RerankerService._cross_encoder = model
             logger.info(f"Cross-encoder model '{target}' loaded successfully on {device}.")
-        except Exception as exc:
+        except (RuntimeError, ValueError, TypeError, OSError, ImportError) as exc:
             self._load_failed = RerankerService._load_failed = True
             logger.warning(f"Cross-encoder load failed ({type(exc).__name__}: {exc}). Falling back to hybrid.")
 

@@ -3,7 +3,7 @@ import logging
 import gc
 from typing import List, Dict, Any, Optional
 from tqdm import tqdm
-from .config import CHROMA_DIR, COLLECTION_NAME, BATCH_SIZE
+from vectordb.src.config import CHROMA_DIR, COLLECTION_NAME, BATCH_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ class VectorStore:
         logger.info(f"Validation complete: {len(valid_chunks)}/{len(chunks)} chunks passed validation.")
         return valid_chunks
 
-    def store_chunks(self, chunks: List[Dict[str, Any]], embedding_service, batch_size: int = BATCH_SIZE):
+    def store_chunks(self, chunks: List[Dict[str, Any]], embedding_service: Any, batch_size: int = BATCH_SIZE) -> None:
         """
         Embeds and stores chunks in batches into ChromaDB with safe upsert behavior.
         """
@@ -115,7 +115,7 @@ class VectorStore:
             
         logger.info(f"Successfully upserted {total_chunks} chunks into Chroma collection '{self.collection_name}'. Total in collection: {self.collection.count()}")
 
-    def query(self, query_text: str, embedding_service, top_k: int = 5, category_filter: Optional[str] = None):
+    def query(self, query_text: str, embedding_service: Any, top_k: int = 5, category_filter: Optional[str] = None) -> Dict[str, Any]:
         """Queries the vector store for top_k most similar chunks."""
         query_embedding = embedding_service.embed_batch([query_text])[0]
         

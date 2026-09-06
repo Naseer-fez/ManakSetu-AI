@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
-import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -24,6 +22,7 @@ class FasterWhisperSTT(SpeechToTextProvider):
         self._compute_type: str = cfg.stt_compute_type
         self._beam_size: int = cfg.stt_beam_size
         self._default_lang: str = cfg.default_language
+        self._task: str = cfg.stt_task
         self._model: Any = None
 
     def _get_model(self) -> Any:
@@ -59,7 +58,7 @@ class FasterWhisperSTT(SpeechToTextProvider):
         start_t = time.perf_counter()
         try:
             target_lang = None if (language in (None, "", "auto") and self._default_lang == "auto") else (language or self._default_lang)
-            kwargs: dict[str, Any] = {"beam_size": self._beam_size}
+            kwargs: dict[str, Any] = {"beam_size": self._beam_size, "task": self._task}
             if target_lang and target_lang != "auto":
                 kwargs["language"] = target_lang
 

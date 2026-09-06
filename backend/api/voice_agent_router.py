@@ -41,7 +41,7 @@ async def voice_chat_endpoint(
             language=language,
             pdf_text=pdf_text,
         )
-    except Exception as exc:
+    except (RuntimeError, OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
         logger.error(f"Error in voice_chat_endpoint ({type(exc).__name__}): {exc}")
         raise HTTPException(status_code=500, detail=f"Voice pipeline error: {type(exc).__name__}")
 

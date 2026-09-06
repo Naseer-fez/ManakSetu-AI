@@ -1,7 +1,6 @@
 """Hybrid semantic and lexical dual-index retriever for Indian Standards backed by ChromaDB."""
 from __future__ import annotations
 import re
-from typing import Any
 from backend.config.settings import app_settings
 from backend.engine.chroma_hydrator import hydrate_standard_from_chroma
 from backend.engine.embedding_service import EmbeddingService

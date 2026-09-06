@@ -62,7 +62,7 @@ d:\CODE\Hackathon/
 │   │   ├── services/        # API client
 │   │   └── types/           # TypeScript definitions
 │   └── package.json
-└── tests/                   # Full pytest test suite (100% passing)
+└── tests/                   # Pytest unit and integration tests
 ```
 
 ---
@@ -95,6 +95,12 @@ Open `http://localhost:5173` in your browser.
 |---|---|---|
 | `POST` | `/api/v1/recommend` | Natural language / Multilingual standard recommendation |
 | `POST` | `/api/v1/analyze-tender` | Multi-format tender document audit (PDF/DOCX/Text) |
+| `POST` | `/api/v1/workspaces` | Create a local tender workspace |
+| `POST` | `/api/v1/workspaces/{id}/analyze` | Upload and audit a document, then create a review revision |
+| `POST` | `/api/v1/workspaces/{id}/chat` | Grounded interactive procurement chat |
+| `POST` | `/api/v1/workspaces/{id}/chat-stream` | SSE-streamed grounded chat |
+| `POST` | `/api/v1/workspaces/{id}/templates` | Register a reviewed DOCX/PDF template profile |
+| `POST` | `/api/v1/workspaces/{id}/export` | Draft or approval-gated DOCX/PDF export |
 | `GET` | `/api/v1/standards` | Search and filter Indian Standards database |
 | `GET` | `/api/v1/standards/{is_code}` | Detailed standard metadata and allied relations |
 | `GET` | `/api/v1/graph` | Multi-relational knowledge graph data |

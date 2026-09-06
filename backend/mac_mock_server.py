@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from typing import Any, AsyncGenerator
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import uvicorn

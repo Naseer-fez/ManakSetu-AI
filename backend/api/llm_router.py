@@ -1,5 +1,7 @@
 """Router for LLM reasoning, explanation, and interactive Q&A with grounded PDF evidence."""
 from __future__ import annotations
+import json
+from typing import AsyncGenerator
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -7,18 +9,20 @@ from backend.engine.certification_advisor import CertificationAdvisor
 from backend.engine.hybrid_retriever import HybridRetriever
 from backend.engine.llm_service import get_llm_service
 from backend.engine.local_gguf_provider import BackpressureError
+from backend.engine.query_guardrails import QueryGuardrails
 from backend.ingestion.standards_loader import StandardsLoader
 from backend.models.recommendation_model import DocumentChunkEvidence
+from backend.engine.singleton_registry import get_singleton
 
 router = APIRouter(prefix="/api/v1", tags=["llm_assistant"])
-loader = StandardsLoader()
-advisor = CertificationAdvisor()
-retriever = HybridRetriever()
+loader = get_singleton("standards_loader", StandardsLoader)
+advisor = get_singleton("certification_advisor", CertificationAdvisor)
+retriever = get_singleton("hybrid_retriever", HybridRetriever)
 llm_service = get_llm_service()
 
 
 class ExplainStandardRequest(BaseModel):
-    query: str
+    query: str = Field(..., max_length=5000)
     is_code: str
 
 
@@ -28,7 +32,7 @@ class ChatMessage(BaseModel):
 
 
 class AssistantQuestionRequest(BaseModel):
-    question: str
+    question: str = Field(..., max_length=5000)
     pdf_text: str | None = None
     chat_history: list[ChatMessage] | None = None
 
@@ -79,17 +83,17 @@ async def explain_standard_stream(req: ExplainStandardRequest) -> StreamingRespo
     alert = advisor.get_certification_alert(std)
     evidences = retriever.search_document_evidence(query=f"{req.is_code} {req.query}", top_k=3)
 
-    async def stream_generator():
+    async def stream_generator() -> AsyncGenerator[str, None]:
         try:
             async for chunk in llm_service.explain_recommendation_stream(
                 query=req.query, standard=std, qco_alert=alert, document_chunks=evidences
             ):
-                yield f"data: {chunk}\n\n"
+                yield f"data: {json.dumps({'text': chunk})}\n\n"
         except BackpressureError:
-            yield f"data: [ERROR: Server busy. Please retry.]\n\n"
+            yield f"data: {json.dumps({'error': 'Server busy. Please retry.'})}\n\n"
         except (ValueError, RuntimeError, OSError, Exception) as exc:
-            yield f"data: [ERROR: {type(exc).__name__}]\n\n"
-        yield "data: [DONE]\n\n"
+            yield f"data: {json.dumps({'error': type(exc).__name__})}\n\n"
+        yield f"data: {json.dumps({'done': True})}\n\n"
 
     return StreamingResponse(
         stream_generator(),
@@ -101,6 +105,13 @@ async def explain_standard_stream(req: ExplainStandardRequest) -> StreamingRespo
 @router.post("/ask-assistant", response_model=AssistantAnswerResponse)
 async def ask_assistant(req: AssistantQuestionRequest) -> AssistantAnswerResponse:
     """Ask conversational questions grounded in Indian Standards and exact PDF page excerpts."""
+    guard = QueryGuardrails.evaluate(req.question)
+    if not guard.allowed:
+        return AssistantAnswerResponse(
+            question=req.question,
+            answer=guard.response or "",
+            document_evidences=[],
+        )
     matches, evidences = retriever.search_with_evidence(query=req.question, top_k=5, top_k_chunks=3)
     standards = [m[0] for m in matches] if matches else loader.get_all_standards()[:5]
     try:
@@ -115,24 +126,70 @@ async def ask_assistant(req: AssistantQuestionRequest) -> AssistantAnswerRespons
 @router.post("/ask-assistant-stream")
 async def ask_assistant_stream(req: AssistantQuestionRequest) -> StreamingResponse:
     """Stream conversational answer grounded in IS."""
+    guard = QueryGuardrails.evaluate(req.question)
+    if not guard.allowed:
+        async def guard_stream() -> AsyncGenerator[str, None]:
+            yield f"data: {json.dumps({'text': guard.response or ''})}\n\n"
+            yield f"data: {json.dumps({'done': True})}\n\n"
+
+        return StreamingResponse(
+            guard_stream(),
+            media_type="text/event-stream",
+            headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache", "Connection": "keep-alive"},
+        )
+
     matches, evidences = retriever.search_with_evidence(query=req.question, top_k=5, top_k_chunks=3)
     standards = [m[0] for m in matches] if matches else loader.get_all_standards()[:5]
 
-    async def stream_generator():
+    async def stream_generator() -> AsyncGenerator[str, None]:
         try:
             async for chunk in llm_service.answer_procurement_query_stream(
                 question=req.question, context_standards=standards, document_chunks=evidences, pdf_text=req.pdf_text, chat_history=req.chat_history
             ):
-                yield f"data: {chunk}\n\n"
+                yield f"data: {json.dumps({'text': chunk})}\n\n"
         except BackpressureError:
-            yield f"data: [ERROR: Server busy. Please retry.]\n\n"
+            yield f"data: {json.dumps({'error': 'Server busy. Please retry.'})}\n\n"
         except (ValueError, RuntimeError, OSError, Exception) as exc:
-            yield f"data: [ERROR: {type(exc).__name__}]\n\n"
-        yield "data: [DONE]\n\n"
+            yield f"data: {json.dumps({'error': type(exc).__name__})}\n\n"
+        yield f"data: {json.dumps({'done': True})}\n\n"
 
     return StreamingResponse(
         stream_generator(),
         media_type="text/event-stream",
         headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache", "Connection": "keep-alive"},
     )
+
+
+
+class TenderClauseRequest(BaseModel):
+    is_code: str = Field(..., max_length=50)
+    query: str = Field(default="Tender technical compliance specification", max_length=5000)
+
+
+class TenderClauseResponse(BaseModel):
+    is_code: str
+    clause_text: str
+
+
+@router.post("/tender-clauses", response_model=TenderClauseResponse)
+async def generate_clauses_endpoint(req: TenderClauseRequest) -> TenderClauseResponse:
+    """Generate comprehensive technical tender clauses grounded in IS standard and QCO requirements."""
+    std = loader.get_by_code(req.is_code)
+    if not std:
+        matches = retriever.search(query=req.is_code, top_k=1)
+        if matches:
+            std = matches[0][0]
+    if not std:
+        raise HTTPException(status_code=404, detail=f"Standard '{req.is_code}' not found")
+
+    alert = advisor.get_certification_alert(std)
+    evidences = retriever.search_document_evidence(query=f"{req.is_code} {req.query}", top_k=3)
+    try:
+        clauses = await llm_service.generate_tender_clauses(
+            query=req.query, standard=std, qco_alert=alert, document_chunks=evidences
+        )
+    except BackpressureError:
+        raise HTTPException(status_code=429, detail="Server busy. Please retry.")
+    return TenderClauseResponse(is_code=std.is_code, clause_text=clauses)
+
 

@@ -19,6 +19,7 @@ CONFIG_DIR: Path = BACKEND_DIR / "config"
 DATA_DIR: Path = Path(os.getenv("APP_DATA_DIR", str(BACKEND_DIR / "data")))
 LOGS_DIR: Path = Path(os.getenv("APP_LOGS_DIR", str(BACKEND_DIR / "logs")))
 UPLOADS_DIR: Path = Path(os.getenv("APP_UPLOADS_DIR", str(DATA_DIR / "uploads")))
+WORKSPACES_DIR: Path = Path(os.getenv("APP_WORKSPACES_DIR", str(DATA_DIR / "workspaces")))
 CACHE_DIR: Path = DATA_DIR
 
 # Configuration files
@@ -44,7 +45,7 @@ DEFAULT_GGUF_MODEL_PATH: Path = Path(os.getenv("DEFAULT_GGUF_MODEL_PATH", str(LL
 GRAMMAR_FILE_PATH: Path = Path(os.getenv("GRAMMAR_FILE_PATH", str(BACKEND_DIR / "engine" / "grammars" / "bis_output.gbnf")))
 
 # Voice model paths
-STT_MODEL_PATH: Path = Path(os.getenv("STT_MODEL_PATH", str(LLM_DIR / "faster-whisper-tiny")))
+STT_MODEL_PATH: Path = Path(os.getenv("STT_MODEL_PATH", str(LLM_DIR / "faster-whisper-small")))
 TTS_ENG_MODEL_PATH: Path = Path(os.getenv("TTS_ENG_MODEL_PATH", str(LLM_DIR / "mms-tts-eng")))
 TTS_HIN_MODEL_PATH: Path = Path(os.getenv("TTS_HIN_MODEL_PATH", str(LLM_DIR / "mms-tts-hin")))
 TTS_CACHE_DIR: Path = Path(os.getenv("TTS_CACHE_DIR", str(DATA_DIR / "tts_cache")))
@@ -61,6 +62,7 @@ def ensure_runtime_directories() -> None:
         DATA_DIR,
         LOGS_DIR,
         UPLOADS_DIR,
+        WORKSPACES_DIR,
         CACHE_DIR,
         TTS_CACHE_DIR,
         VECTORDB_DIR,
@@ -70,8 +72,9 @@ def ensure_runtime_directories() -> None:
     for d in runtime_dirs:
         try:
             d.mkdir(parents=True, exist_ok=True)
-        except OSError:
-            pass
+        except OSError as exc:
+            import warnings
+            warnings.warn(f"Failed to create directory {d}: {exc}", RuntimeWarning, stacklevel=2)
 
 
 # Automatically ensure core runtime directories on import

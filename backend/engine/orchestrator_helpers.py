@@ -1,6 +1,6 @@
 """Prompt formatting and response synthesis helpers for LLM Orchestrator."""
 from __future__ import annotations
-from typing import Any
+
 from backend.engine.prompts import MASTER_SYSTEM_PROMPT, format_evaluation_prompt
 from backend.models.llm_contracts import LlmInputContract, LlmStandardizedResponse
 

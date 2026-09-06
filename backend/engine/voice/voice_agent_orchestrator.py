@@ -3,9 +3,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from pathlib import Path
 from backend.config.paths import TTS_CACHE_DIR
-from backend.config.settings import app_settings
 from backend.engine.hybrid_retriever import HybridRetriever
 from backend.engine.llm_orchestrator import LlmOrchestrator
 from backend.engine.llm_service import get_llm_service

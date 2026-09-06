@@ -1,5 +1,7 @@
 """Unified multi-modal pipeline for Indian Standards recommendation and QCO compliance."""
 from __future__ import annotations
+import os
+import asyncio
 import base64
 import tempfile
 from pydantic import BaseModel, Field
@@ -58,30 +60,34 @@ class RecommendationPipeline:
         img_res: ImageClassificationResult | None = None
 
         if audio_bytes:
-            txt = self._voice_svc.transcribe_audio(audio_bytes)
+            txt = await asyncio.to_thread(self._voice_svc.transcribe_audio, audio_bytes)
             if txt:
                 eff_query = f"{eff_query} {txt}".strip()
         if image_bytes:
-            img_res = self._image_clf.classify(image_bytes)
+            img_res = await asyncio.to_thread(self._image_clf.classify, image_bytes)
             if img_res.extracted_text:
                 raw_parts.append(img_res.extracted_text)
         if pdf_bytes:
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
                 tmp.write(pdf_bytes)
-                ptxt = self._doc_parser.extract_text_from_pdf(tmp.name)
+                ptxt = await asyncio.to_thread(self._doc_parser.extract_text_from_pdf, tmp.name)
                 if ptxt:
                     raw_parts.append(ptxt)
+            try:
+                os.unlink(tmp.name)
+            except OSError:
+                pass
 
         comb_txt = " ".join(raw_parts)
         sq = eff_query or (comb_txt[:300] if comb_txt else "General Indian Standards")
-        exp_q, lang = self._multi.translate_and_expand(sq)
+        exp_q, lang = await asyncio.to_thread(self._multi.translate_and_expand, sq)
 
         cached = await self._cache.check_cache(exp_q)
         if cached is not None:
             logger.info(f"Cache HIT for query: {exp_q[:50]}...")
             return cached
 
-        matches, evidences = self._retriever.search_with_evidence(query=exp_q, division=division, top_k=5, top_k_chunks=5)
+        matches, evidences = await asyncio.to_thread(self._retriever.search_with_evidence, query=exp_q, division=division, top_k=5, top_k_chunks=5)
 
         recs = [
             StandardRecommendation(
@@ -99,7 +105,7 @@ class RecommendationPipeline:
             image_context=img_res.model_dump() if img_res else {}, qco_alert=recs[0].certification_alert if recs else "",
         )
         llm_out = await self._llm.execute(llm_in)
-        v_b64 = base64.b64encode(self._voice_svc.synthesize_speech(llm_out.technical_justification)).decode("ascii") if (generate_voice_response and llm_out) else None
+        v_b64 = base64.b64encode(await asyncio.to_thread(self._voice_svc.synthesize_speech, llm_out.technical_justification)).decode("ascii") if (generate_voice_response and llm_out) else None
 
         response = PipelineResponse(
             query=sq, detected_language=lang, extracted_text_snippet=comb_txt[:300],

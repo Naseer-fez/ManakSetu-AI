@@ -23,6 +23,11 @@ class TextToSpeechProvider(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def synthesize_sentence(self, sentence: str, language: str = "en") -> SynthesisResult:
+        """Synthesize a single sentence for streaming mode."""
+        raise NotImplementedError
+
+    @abstractmethod
     def preload(self) -> None:
         """Pre-load model weights into memory."""
         pass

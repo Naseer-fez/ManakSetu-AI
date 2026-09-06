@@ -1,18 +1,18 @@
 """Router for GeM / CPPP e-procurement webhook integration."""
 from __future__ import annotations
 
-from typing import Any
 from fastapi import APIRouter
 from pydantic import BaseModel
 from backend.engine.hybrid_retriever import HybridRetriever
 from backend.engine.normative_resolver import NormativeResolver
 from backend.engine.tender_clause_generator import TenderClauseGenerator
+from backend.engine.singleton_registry import get_singleton
 
 router = APIRouter(prefix="/api/v1", tags=["gem_integration"])
 
-retriever = HybridRetriever()
-resolver = NormativeResolver()
-clause_gen = TenderClauseGenerator()
+retriever = get_singleton("hybrid_retriever", HybridRetriever)
+resolver = get_singleton("normative_resolver", NormativeResolver)
+clause_gen = get_singleton("tender_clause_generator", TenderClauseGenerator)
 
 
 class GemBidValidationRequest(BaseModel):
@@ -35,11 +35,14 @@ class GemBidValidationResponse(BaseModel):
     allied_standards: list[str]
 
 
+import asyncio
+
+
 @router.post("/gem-webhook", response_model=GemBidValidationResponse)
 async def validate_gem_bid(req: GemBidValidationRequest) -> GemBidValidationResponse:
     """Validate a GeM bid specification against BIS and QCO regulations."""
     search_query = f"{req.category_name} {req.product_title} {req.buyer_specifications}"
-    matches = retriever.search(query=search_query, top_k=1)
+    matches = await asyncio.to_thread(retriever.search, query=search_query, top_k=1)
 
     if not matches:
         return GemBidValidationResponse(

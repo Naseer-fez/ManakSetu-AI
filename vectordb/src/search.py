@@ -1,8 +1,8 @@
 import logging
 from typing import List, Dict, Any, Optional
-from .config import TOP_K
-from .embeddings import EmbeddingService
-from .vector_store import VectorStore
+from vectordb.src.config import TOP_K
+from vectordb.src.embeddings import EmbeddingService
+from vectordb.src.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
 

@@ -40,7 +40,7 @@ class VectorDbSearchService:
         filt = self._build_filter(status, mandatory, division)
         try:
             res = col.query(query_texts=[q], n_results=min(top_k, max(col.count(), 1)), where=filt)
-        except (chromadb.errors.ChromaError, ValueError, Exception):
+        except (chromadb.errors.ChromaError, ValueError, RuntimeError, KeyError):
             res = col.query(query_texts=[q], n_results=min(top_k, max(col.count(), 1)))
         if not res or not res["ids"] or not res["ids"][0]:
             return []
@@ -83,7 +83,7 @@ class VectorDbSearchService:
                 }
                 for i, doc_id in enumerate(ids)
             ]
-        except (chromadb.errors.ChromaError, KeyError, ValueError, Exception):
+        except (chromadb.errors.ChromaError, KeyError, ValueError, RuntimeError, TypeError):
             return []
 
     def search_dual_index(self, query: str, top_k_catalog: int = 5, top_k_documents: int = 5) -> dict[str, Any]:

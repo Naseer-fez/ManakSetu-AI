@@ -14,6 +14,21 @@ from backend.logger.app_logger import get_logger
 logger = get_logger("engine.local_gguf_provider")
 _STREAM_END = object()
 
+# Threshold for runtime repetition detection in streaming mode.
+# If the same token appears this many times consecutively, generation is halted.
+_MAX_CONSECUTIVE_REPEATS = 8
+
+
+def _build_sampling_kwargs() -> dict[str, float | int]:
+    """Assemble repetition-guard sampling kwargs from app config."""
+    return {
+        "repeat_penalty": app_settings.llm.repeat_penalty,
+        "frequency_penalty": app_settings.llm.frequency_penalty,
+        "presence_penalty": app_settings.llm.presence_penalty,
+        "repeat_last_n": app_settings.llm.repeat_last_n,
+        "top_p": app_settings.llm.top_p,
+    }
+
 
 class BackpressureError(Exception):
     """Raised when the LLM inference queue is full."""
@@ -42,6 +57,8 @@ class LocalGgufLlmProvider(BaseLlmProvider):
         n_threads: int | None = None,
         n_gpu_layers: int | None = None,
         chat_format: str | None = None,
+        rope_freq_scale: float | None = None,
+        kv_quant: str | None = None,
     ) -> None:
         if model_path:
             self._model_path = model_path
@@ -50,17 +67,38 @@ class LocalGgufLlmProvider(BaseLlmProvider):
         else:
             self._model_path = app_settings.llm.model_path
 
+        is_fast_model = app_settings.distributed_reasoning.mac_available and (
+            not model_path or model_path == app_settings.distributed_reasoning.local_preprocessor_model
+        )
+
         if n_ctx is not None:
             self._n_ctx = n_ctx
+        elif is_fast_model:
+            self._n_ctx = app_settings.distributed_reasoning.fast_model_n_ctx
         else:
             self._n_ctx = app_settings.llm.n_ctx
+
         self._n_threads = n_threads or app_settings.llm.n_threads
-        self._n_gpu_layers = n_gpu_layers if n_gpu_layers is not None else app_settings.llm.n_gpu_layers
+
+        if n_gpu_layers is not None:
+            self._n_gpu_layers = n_gpu_layers
+        elif is_fast_model:
+            self._n_gpu_layers = app_settings.distributed_reasoning.fast_model_n_gpu_layers
+        else:
+            self._n_gpu_layers = app_settings.llm.n_gpu_layers
+
         self._chat_format = chat_format or app_settings.llm.chat_format
+        self._rope_freq_scale = rope_freq_scale if rope_freq_scale is not None else (
+            app_settings.distributed_reasoning.fast_model_rope_freq_scale if is_fast_model else None
+        )
+        self._kv_quant = kv_quant or (
+            app_settings.distributed_reasoning.fast_model_kv_quant if is_fast_model else None
+        )
         self._model = None
         self._lock = threading.RLock()  # re-entrant startup lock (preload/warmup)
 
         self._semaphore: asyncio.Semaphore = asyncio.Semaphore(1)
+        self._queue_lock = asyncio.Lock()
         self._queue_count: int = 0
         self._max_queue: int = app_settings.llm.max_queue_size
         self._grammar: Any = None
@@ -92,7 +130,15 @@ class LocalGgufLlmProvider(BaseLlmProvider):
 
     def _init_llama_instance(self, ctx: int, gpu_layers: int | None = None) -> Any:
         layers = self._n_gpu_layers if gpu_layers is None else gpu_layers
-        return instantiate_llama(self._model_path, ctx, self._n_threads, layers, self._chat_format)
+        return instantiate_llama(
+            self._model_path,
+            ctx,
+            self._n_threads,
+            layers,
+            self._chat_format,
+            rope_freq_scale=self._rope_freq_scale,
+            kv_quant=self._kv_quant,
+        )
 
     def _load_model(self) -> Any:
         if app_settings.distributed_reasoning.mac_available:
@@ -153,12 +199,14 @@ class LocalGgufLlmProvider(BaseLlmProvider):
         model_p = str(getattr(self, "_model_path", ""))
         effective_max_tokens = max_tokens or (512 if "2b" in model_p.lower() else app_settings.llm.max_tokens)
         msgs = _build_messages(prompt, system_prompt, model_p)
+        sampling = _build_sampling_kwargs()
         try:
             resp = self._model.create_chat_completion(
                 messages=msgs,
                 temperature=app_settings.llm.temperature,
                 max_tokens=effective_max_tokens,
                 grammar=grammar,
+                **sampling,
             )
             choices = resp.get("choices", [])
             return str(choices[0]["message"].get("content", "")) if choices and "message" in choices[0] else None
@@ -170,6 +218,7 @@ class LocalGgufLlmProvider(BaseLlmProvider):
                         messages=msgs,
                         temperature=app_settings.llm.temperature,
                         max_tokens=effective_max_tokens,
+                        **sampling,
                     )
                     choices = resp.get("choices", [])
                     return str(choices[0]["message"].get("content", "")) if choices and "message" in choices[0] else None
@@ -195,6 +244,32 @@ class LocalGgufLlmProvider(BaseLlmProvider):
         model_p = str(getattr(self, "_model_path", ""))
         effective_max_tokens = max_tokens or (512 if "2b" in model_p.lower() else app_settings.llm.max_tokens)
         msgs = _build_messages(prompt, system_prompt, model_p)
+        sampling = _build_sampling_kwargs()
+
+        def _iter_with_repeat_guard(stream: Any) -> Any:
+            """Yield chunks from stream, halting on runaway token repetition."""
+            last_token: str = ""
+            repeat_count: int = 0
+            for chunk in stream:
+                choices = chunk.get("choices", [])
+                if choices and "delta" in choices[0]:
+                    c = choices[0]["delta"].get("content", "")
+                    if c:
+                        token = c.strip()
+                        if token and token == last_token:
+                            repeat_count += 1
+                            if repeat_count >= _MAX_CONSECUTIVE_REPEATS:
+                                logger.warning(
+                                    f"[REPEAT-GUARD] Halted generation: token '{token}' "
+                                    f"repeated {repeat_count} times consecutively"
+                                )
+                                yield "\n[Generation stopped: repetitive output detected]"
+                                return
+                        else:
+                            repeat_count = 1
+                            last_token = token
+                        yield c
+
         try:
             resp = self._model.create_chat_completion(
                 messages=msgs,
@@ -202,13 +277,9 @@ class LocalGgufLlmProvider(BaseLlmProvider):
                 max_tokens=effective_max_tokens,
                 stream=True,
                 grammar=grammar,
+                **sampling,
             )
-            for chunk in resp:
-                choices = chunk.get("choices", [])
-                if choices and "delta" in choices[0]:
-                    c = choices[0]["delta"].get("content", "")
-                    if c:
-                        yield c
+            yield from _iter_with_repeat_guard(resp)
         except (ValueError, RuntimeError, TypeError, KeyError, IndexError, OSError) as exc:
             if grammar is not None:
                 logger.warning(f"[FALLBACK] GGUF grammar streaming error ({type(exc).__name__}: {exc}) — retrying without grammar")
@@ -218,13 +289,9 @@ class LocalGgufLlmProvider(BaseLlmProvider):
                         temperature=app_settings.llm.temperature,
                         max_tokens=effective_max_tokens,
                         stream=True,
+                        **sampling,
                     )
-                    for chunk in resp:
-                        choices = chunk.get("choices", [])
-                        if choices and "delta" in choices[0]:
-                            c = choices[0]["delta"].get("content", "")
-                            if c:
-                                yield c
+                    yield from _iter_with_repeat_guard(resp)
                     return
                 except (ValueError, RuntimeError, TypeError, KeyError, IndexError, OSError) as exc2:
                     logger.warning(f"[FALLBACK] GGUF unconstrained streaming also failed ({type(exc2).__name__}: {exc2})")
@@ -239,10 +306,12 @@ class LocalGgufLlmProvider(BaseLlmProvider):
         use_grammar: bool = False,
         **kwargs: Any,
     ) -> str:
-        if self._queue_count >= self._max_queue:
-            raise BackpressureError(f"LLM inference queue is full ({self._max_queue} pending)")
-        self._queue_count += 1
-        logger.info(f"Queue: request enqueued (position={self._queue_count})")
+        async with self._queue_lock:
+            if self._queue_count >= self._max_queue:
+                raise BackpressureError(f"LLM inference queue is full ({self._max_queue} pending)")
+            self._queue_count += 1
+            position = self._queue_count
+        logger.info(f"Queue: request enqueued (position={position})")
         try:
             async with self._semaphore:
                 out = await asyncio.to_thread(self._sync_generate, prompt, system_prompt, max_tokens, use_grammar)
@@ -253,7 +322,8 @@ class LocalGgufLlmProvider(BaseLlmProvider):
         except (ValueError, RuntimeError, OSError) as exc:
             logger.warning(f"Local GGUF: Async generation error ({type(exc).__name__}: {exc})")
         finally:
-            self._queue_count -= 1
+            async with self._queue_lock:
+                self._queue_count -= 1
         return "No LLM model is currently available (Local GGUF model not active)."
 
     async def generate_text_stream(
@@ -264,10 +334,11 @@ class LocalGgufLlmProvider(BaseLlmProvider):
         use_grammar: bool = False,
         **kwargs: Any,
     ) -> AsyncGenerator[str, None]:
-        if self._queue_count >= self._max_queue:
-            raise BackpressureError(f"LLM inference queue is full ({self._max_queue} pending)")
-        self._queue_count += 1
-        position = self._queue_count
+        async with self._queue_lock:
+            if self._queue_count >= self._max_queue:
+                raise BackpressureError(f"LLM inference queue is full ({self._max_queue} pending)")
+            self._queue_count += 1
+            position = self._queue_count
         logger.info(f"Queue: stream request enqueued (position={position})")
         try:
             if position > 1:
@@ -281,7 +352,7 @@ class LocalGgufLlmProvider(BaseLlmProvider):
                         gen = self._sync_generate_stream(prompt, system_prompt, max_tokens, use_grammar)
                         for chunk in gen:
                             loop.call_soon_threadsafe(queue.put_nowait, chunk)
-                    except Exception as e:
+                    except (RuntimeError, ValueError, TypeError, OSError) as e:
                         logger.warning(f"Local GGUF: worker thread error ({type(e).__name__}: {e})")
                         loop.call_soon_threadsafe(queue.put_nowait, f"\\n[Error: {type(e).__name__}]")
                     finally:
@@ -297,8 +368,9 @@ class LocalGgufLlmProvider(BaseLlmProvider):
                     yield chunk  # type: ignore
         except BackpressureError:
             raise
-        except (ValueError, RuntimeError, OSError, Exception) as exc:
+        except (ValueError, RuntimeError, OSError, TypeError) as exc:
             logger.warning(f"Local GGUF: Async stream error ({type(exc).__name__}: {exc})")
             yield "\n[Stream Interrupted]"
         finally:
-            self._queue_count -= 1
+            async with self._queue_lock:
+                self._queue_count -= 1

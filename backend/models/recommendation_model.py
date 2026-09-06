@@ -7,7 +7,7 @@ from backend.models.standard_model import IndianStandard
 
 class RecommendationRequest(BaseModel):
     """User query payload for standard recommendation."""
-    query: str
+    query: str = Field(..., max_length=5000)
     language: str | None = None
     division: str | None = None
     top_k: int = 5

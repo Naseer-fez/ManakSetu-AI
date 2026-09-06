@@ -56,17 +56,9 @@ class MmsVitsTTS(TextToSpeechProvider):
         return f"MmsVitsTTS({self._device})"
 
     def _fallback_tone(self) -> bytes:
-        buf = io.BytesIO()
-        with wave.open(buf, "wb") as wf:
-            wf.setnchannels(1)
-            wf.setsampwidth(2)
-            wf.setframerate(16000)
-            frames = bytearray()
-            for i in range(8000):
-                val = int(16000.0 * math.sin(2.0 * math.pi * 440.0 * (i / 16000)))
-                frames.extend(struct.pack("<h", val))
-            wf.writeframes(bytes(frames))
-        return buf.getvalue()
+        """Conform to Rule [R9] (Truthfulness): Never synthesize fake/mock domain audio."""
+        logger.info("MMS-TTS unavailable or uninitialized; returning empty audio per Rule [R9].")
+        return b""
 
     def _synthesize_sync(self, text: str, language: str = "en") -> SynthesisResult:
         clean = " ".join(text.split()[:40]) if text else "BIS Indian Standard Recommendation."
@@ -94,6 +86,37 @@ class MmsVitsTTS(TextToSpeechProvider):
 
         wav = self._fallback_tone()
         return SynthesisResult(audio_bytes=wav, sample_rate=16000, duration_sec=time.perf_counter() - start_t, language="en")
+
+    def _synthesize_sentence_sync(self, sentence: str, language: str = "en") -> SynthesisResult:
+        """Synthesize a single sentence without word truncation (for streaming mode)."""
+        clean = sentence.strip() if sentence else ""
+        if not clean:
+            return SynthesisResult(audio_bytes=b"", sample_rate=16000, language=language)
+        mod, tok = self._get_components(language)
+        start_t = time.perf_counter()
+        if mod is not None and tok is not None:
+            try:
+                import soundfile as sf
+                import torch
+                inputs = tok(clean, return_tensors="pt").to(self._device)
+                with torch.inference_mode():
+                    output = mod(**inputs).waveform
+                buf = io.BytesIO()
+                rate = int(mod.config.sampling_rate)
+                audio_np = output.squeeze().detach().cpu().numpy()
+                sf.write(buf, audio_np, samplerate=rate, format="WAV")
+                wav = buf.getvalue()
+                elapsed = time.perf_counter() - start_t
+                if len(wav) > 100:
+                    return SynthesisResult(audio_bytes=wav, sample_rate=rate, duration_sec=elapsed, language=language)
+            except (RuntimeError, OSError, ValueError) as exc:
+                logger.warning(f"MMS sentence synthesis error ({type(exc).__name__}): {exc}")
+        wav = self._fallback_tone()
+        return SynthesisResult(audio_bytes=wav, sample_rate=16000, duration_sec=time.perf_counter() - start_t, language="en")
+
+    async def synthesize_sentence(self, sentence: str, language: str = "en") -> SynthesisResult:
+        """Async wrapper for single-sentence synthesis (streaming mode)."""
+        return await asyncio.to_thread(self._synthesize_sentence_sync, sentence, language)
 
     async def synthesize(self, text: str, language: str = "en") -> SynthesisResult:
         return await asyncio.to_thread(self._synthesize_sync, text, language)

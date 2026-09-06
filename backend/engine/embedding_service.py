@@ -3,8 +3,8 @@ from __future__ import annotations
 import hashlib
 import threading
 import time
-from typing import Any
 import numpy as np
+from collections import OrderedDict
 from backend.config.settings import app_settings
 from backend.logger.app_logger import get_logger
 from backend.vectordb.embedding_function import _SHARED_LOCK, _SHARED_MODEL_CACHE
@@ -30,7 +30,8 @@ class EmbeddingService:
     def __init__(self, model_name: str | None = None) -> None:
         self._model_name = model_name or app_settings.ai_engine.embedding_model_name
         self._model, self._is_offline, self._dim = None, False, 384
-        self._cache: dict[str, np.ndarray] = {}
+        self._cache: OrderedDict[str, np.ndarray] = OrderedDict()
+        self._max_cache_size: int = 10000
         self._lock = threading.Lock()
 
     def _fallback_embed(self, text: str) -> np.ndarray:
@@ -67,11 +68,9 @@ class EmbeddingService:
                 # Optional: compile model for further speedup if using PyTorch 2.0+
                 if device == "cuda" and hasattr(torch, "compile"):
                     try:
-                        # SentenceTransformers might have issues with torch.compile depending on the version, 
-                        # but we can try to compile the underlying auto_model
-                        pass 
-                    except Exception as e:
-                        logger.warning(f"Failed to compile embedding model: {e}")
+                        pass  # torch.compile reserved for future SentenceTransformers compatibility
+                    except (RuntimeError, ValueError, TypeError) as exc:
+                        logger.warning(f"Failed to compile embedding model: {exc}")
                         
                 _SHARED_MODEL_CACHE[self._model_name] = self._model
             except (OSError, ValueError, RuntimeError, ImportError) as exc:
@@ -93,17 +92,22 @@ class EmbeddingService:
     def get_embedding(self, text: str) -> np.ndarray:
         clean = text.strip().lower()
         if clean in self._cache:
+            self._cache.move_to_end(clean)
             return self._cache[clean]
         self._try_load_model()
         if self._model is not None and not self._is_offline:
             try:
                 vec = self._model.encode(clean, convert_to_numpy=True, normalize_embeddings=True)
                 self._cache[clean] = vec
+                if len(self._cache) > self._max_cache_size:
+                    self._cache.popitem(last=False)
                 return vec
             except (RuntimeError, ValueError):
                 self._is_offline = True
         vec = self._fallback_embed(clean)
         self._cache[clean] = vec
+        if len(self._cache) > self._max_cache_size:
+            self._cache.popitem(last=False)
         return vec
 
     def compute_similarity(self, vec_a: np.ndarray, vec_b: np.ndarray) -> float:

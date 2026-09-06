@@ -27,6 +27,7 @@ from backend.config.paths import (
     TTS_ENG_MODEL_PATH,
     TTS_HIN_MODEL_PATH,
     UPLOADS_DIR,
+    WORKSPACES_DIR,
 )
 
 load_dotenv()
@@ -44,6 +45,7 @@ class StorageSettings(BaseModel):
     standards_file: str = str(STANDARDS_DB_PATH)
     qco_file: str = str(QCO_REGISTRY_PATH)
     upload_dir: str = str(UPLOADS_DIR)
+    workspace_dir: str = str(WORKSPACES_DIR)
     rag_golden_dataset: str = str(RAG_GOLDEN_DATASET_PATH)
 
 
@@ -54,6 +56,8 @@ class AiEngineSettings(BaseModel):
     top_k_recommendations: int = 5
     hybrid_alpha: float = 0.65
     enable_gpu: bool = True
+    require_cuda: bool = True
+    gpu_device: str = "cuda:0"
     reranker_model: str = str(RERANKER_MODEL_PATH)
     reranker_candidate_pool: int = 25
     domain_expansions_file: str = str(DOMAIN_EXPANSIONS_PATH)
@@ -73,6 +77,11 @@ class LlmSettings(BaseModel):
     max_tokens: int = 2048
     enable_grammar: bool = True
     grammar_file: str = str(GRAMMAR_FILE_PATH)
+    repeat_penalty: float = 1.18
+    frequency_penalty: float = 0.1
+    presence_penalty: float = 0.1
+    repeat_last_n: int = 256
+    top_p: float = 0.9
     max_queue_size: int = 5
 
 
@@ -95,6 +104,10 @@ class VoiceSettings(BaseModel):
     max_audio_duration_sec: int = 60
     audio_sample_rate: int = 16000
     tts_cache_dir: str = str(TTS_CACHE_DIR)
+    stt_task: str = "translate"
+    live_enabled: bool = True
+    live_max_turns: int = 5
+    live_sentence_delimiters: str = ".!?"
 
 
 class BisScraperSettings(BaseModel):
@@ -116,12 +129,15 @@ class DistributedReasoningSettings(BaseModel):
     mac_available: bool = False
     mac_endpoint: str = "http://localhost:5000/reason"
     local_preprocessor_model: str = "llm/gemma-2b.gguf"
+    fast_model_n_ctx: int = 65536
+    fast_model_n_gpu_layers: int = 36
+    fast_model_kv_quant: str = "q4_0"
+    fast_model_rope_freq_scale: float = 0.5
 
 
 class WebSearchSettings(BaseModel):
     enabled: bool = False
-    provider: str = "brave"
-    api_key_env_var: str = "BRAVE_SEARCH_API_KEY"
+    provider: str = "duckduckgo"
     request_timeout_sec: int = 15
     fast_answer_top_k: int = 2
     fast_answer_max_tokens: int = 300
@@ -183,7 +199,9 @@ def load_settings(config_path: str | Path | None = None) -> AppSettings:
                 parsed = yaml.safe_load(fh)
                 if isinstance(parsed, dict):
                     raw_data = _normalize_dict_paths(parsed)
-        except (yaml.YAMLError, OSError, ValueError):
+        except (yaml.YAMLError, OSError, ValueError) as exc:
+            import warnings
+            warnings.warn(f"Failed to parse config at {cfg_path}: {exc}", RuntimeWarning, stacklevel=2)
             raw_data = {}
     env_mac = os.getenv("MAC_AVAILABLE")
     if env_mac is not None:

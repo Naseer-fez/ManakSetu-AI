@@ -32,7 +32,11 @@ def warmup_backend_ai_models() -> float:
 
     # 3. Warm up LLM provider based on Mac distributed mode
     if app_settings.distributed_reasoning.mac_available:
-        logger.info("Mac mode active: skipping 7B model; preloading local 2B preprocessor.")
+        logger.info(
+            f"Mac mode active: preloading fast model '{app_settings.distributed_reasoning.local_preprocessor_model}' "
+            f"(ctx={app_settings.distributed_reasoning.fast_model_n_ctx}, "
+            f"gpu={app_settings.distributed_reasoning.fast_model_n_gpu_layers})."
+        )
         local_2b = get_llm_provider("local")
         if hasattr(local_2b, "preload"):
             local_2b.preload()
@@ -48,10 +52,10 @@ def warmup_backend_ai_models() -> float:
 
     # 4. Warm up voice models
     try:
-        from backend.engine.voice.provider_factory import VoiceProviderFactory
-        VoiceProviderFactory.get_stt_provider().preload()
-        VoiceProviderFactory.get_tts_provider().preload()
-    except Exception as exc:
+        from backend.engine.voice.provider_factory import get_stt_provider, get_tts_provider
+        get_stt_provider().preload()
+        get_tts_provider().preload()
+    except (RuntimeError, ValueError, OSError, ImportError) as exc:
         logger.warning(f"Voice model preloading failed: {exc}")
 
     try:

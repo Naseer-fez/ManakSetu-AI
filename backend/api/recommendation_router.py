@@ -9,13 +9,14 @@ from backend.engine.multilingual_processor import MultilingualProcessor
 from backend.engine.normative_resolver import NormativeResolver
 from backend.engine.tender_clause_generator import TenderClauseGenerator
 from backend.models.recommendation_model import RecommendationRequest, RecommendationResponse, StandardRecommendation
+from backend.engine.singleton_registry import get_singleton
 
 router = APIRouter(prefix="/api/v1", tags=["recommendations"])
 multilingual_proc = MultilingualProcessor()
-retriever = HybridRetriever()
-resolver = NormativeResolver()
-cert_advisor = CertificationAdvisor()
-clause_gen = TenderClauseGenerator()
+retriever = get_singleton("hybrid_retriever", HybridRetriever)
+resolver = get_singleton("normative_resolver", NormativeResolver)
+cert_advisor = get_singleton("certification_advisor", CertificationAdvisor)
+clause_gen = get_singleton("tender_clause_generator", TenderClauseGenerator)
 
 
 @router.post("/recommend", response_model=RecommendationResponse)

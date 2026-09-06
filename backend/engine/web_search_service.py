@@ -14,21 +14,16 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import sqlite3
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-import httpx
-
 from backend.config.settings import app_settings
 from backend.logger.app_logger import get_logger
 
 logger = get_logger("engine.web_search_service")
-
-_BRAVE_SEARCH_ENDPOINT = "https://api.search.brave.com/res/v1/web/search"
 
 
 @dataclass(frozen=True)
@@ -72,15 +67,17 @@ class _SearchCache:
         return sqlite3.connect(self._db_path, timeout=5)
 
     def _ensure_table(self) -> None:
+        import contextlib
         try:
-            with self._conn() as conn:
-                conn.execute(
-                    """CREATE TABLE IF NOT EXISTS web_search_cache (
-                        query_hash TEXT PRIMARY KEY,
-                        results_json TEXT NOT NULL,
-                        created_at REAL NOT NULL
-                    )"""
-                )
+            with contextlib.closing(self._conn()) as conn:
+                with conn:
+                    conn.execute(
+                        """CREATE TABLE IF NOT EXISTS web_search_cache (
+                            query_hash TEXT PRIMARY KEY,
+                            results_json TEXT NOT NULL,
+                            created_at REAL NOT NULL
+                        )"""
+                    )
         except sqlite3.Error as exc:
             logger.warning(f"Cache table creation failed: {exc}")
 
@@ -90,9 +87,10 @@ class _SearchCache:
 
     def get(self, query: str) -> list[WebSearchResult] | None:
         """Return cached results or ``None`` on miss / expiry."""
+        import contextlib
         h = self._hash(query)
         try:
-            with self._conn() as conn:
+            with contextlib.closing(self._conn()) as conn:
                 row = conn.execute(
                     "SELECT results_json, created_at FROM web_search_cache WHERE query_hash = ?",
                     (h,),
@@ -108,45 +106,41 @@ class _SearchCache:
             return None
 
     def put(self, query: str, results: list[WebSearchResult]) -> None:
+        import contextlib
         h = self._hash(query)
         try:
-            with self._conn() as conn:
-                conn.execute(
-                    "INSERT OR REPLACE INTO web_search_cache (query_hash, results_json, created_at) VALUES (?, ?, ?)",
-                    (h, json.dumps([asdict(r) for r in results]), time.time()),
-                )
+            with contextlib.closing(self._conn()) as conn:
+                with conn:
+                    conn.execute(
+                        "INSERT OR REPLACE INTO web_search_cache (query_hash, results_json, created_at) VALUES (?, ?, ?)",
+                        (h, json.dumps([asdict(r) for r in results]), time.time()),
+                    )
         except sqlite3.Error as exc:
             logger.warning(f"Cache write error: {exc}")
 
     def _delete(self, query_hash: str) -> None:
+        import contextlib
         try:
-            with self._conn() as conn:
-                conn.execute("DELETE FROM web_search_cache WHERE query_hash = ?", (query_hash,))
+            with contextlib.closing(self._conn()) as conn:
+                with conn:
+                    conn.execute("DELETE FROM web_search_cache WHERE query_hash = ?", (query_hash,))
         except sqlite3.Error:
             pass
 
 
 class WebSearchService:
-    """Async Brave Search client with caching and graceful degradation."""
+    """Async DuckDuckGo Search client with caching and graceful degradation."""
 
     def __init__(
         self,
-        api_key_env_var: str | None = None,
+        api_key_env_var: str | None = None, # Left for backward compatibility in tests
         timeout_sec: int | None = None,
         cache_ttl_hours: int | None = None,
     ) -> None:
         ws = app_settings.web_search
-        env_var = api_key_env_var or ws.api_key_env_var
-        self._api_key: str = os.getenv(env_var, "")
         self._timeout = timeout_sec or ws.request_timeout_sec
         cache_db = Path(app_settings.cache.sqlite_db_path).parent / "web_search_cache.db"
         self._cache = _SearchCache(str(cache_db), cache_ttl_hours or ws.cache_ttl_hours)
-
-        if not self._api_key:
-            logger.warning(
-                f"Brave Search API key not set (env var: {env_var}). "
-                "Web search will return empty results."
-            )
 
     async def search(
         self, scoped_query: str, top_k: int = 3, max_tokens: int = 500
@@ -156,58 +150,51 @@ class WebSearchService:
         On any failure (network, auth, timeout) returns an empty list so the
         caller can proceed without web context (graceful degradation).
         """
-        if not self._api_key:
-            return []
-
         # --- Cache check ---
         cached = self._cache.get(scoped_query)
         if cached is not None:
             logger.info("Web search cache HIT")
             return _truncate_results(cached[:top_k], max_tokens)
 
-        # --- Brave API call ---
-        headers = {
-            "Accept": "application/json",
-            "Accept-Encoding": "gzip",
-            "X-Subscription-Token": self._api_key,
-        }
-        params: dict[str, Any] = {"q": scoped_query, "count": top_k}
+        # --- DDG API call ---
+        try:
+            import asyncio
+            from ddgs import DDGS
+        except ImportError:
+            logger.warning("ddgs package not found. Returning empty results.")
+            return []
 
         try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
-                resp = await client.get(
-                    _BRAVE_SEARCH_ENDPOINT, headers=headers, params=params
+            with DDGS() as ddgs_client:
+                raw_results = await asyncio.wait_for(
+                    asyncio.to_thread(ddgs_client.text, scoped_query, max_results=top_k),
+                    timeout=self._timeout
                 )
-                resp.raise_for_status()
-                data = resp.json()
-        except httpx.TimeoutException:
-            logger.warning(f"Brave Search timed out after {self._timeout}s")
+        except asyncio.TimeoutError:
+            logger.warning(f"DuckDuckGo search timed out after {self._timeout}s")
             return []
-        except httpx.HTTPStatusError as exc:
-            logger.warning(f"Brave Search HTTP error {exc.response.status_code}")
-            return []
-        except (httpx.RequestError, ValueError, KeyError) as exc:
-            logger.warning(f"Brave Search request error: {type(exc).__name__}: {exc}")
+        except Exception as exc:
+            logger.warning(f"DuckDuckGo Search error: {type(exc).__name__}: {exc}")
             return []
 
         # --- Parse results ---
-        results = self._parse_response(data, top_k)
+        results = self._parse_response(raw_results, top_k)
         if results:
             self._cache.put(scoped_query, results)
 
         return _truncate_results(results, max_tokens)
 
     @staticmethod
-    def _parse_response(data: dict[str, Any], top_k: int) -> list[WebSearchResult]:
-        """Extract ``WebSearchResult`` objects from the Brave API response."""
-        web_results: list[dict[str, Any]] = (
-            data.get("web", {}).get("results", [])
-        )
+    def _parse_response(data: Any, top_k: int) -> list[WebSearchResult]:
+        """Extract ``WebSearchResult`` objects from the DDG API response."""
+        if not data or not isinstance(data, list):
+            return []
+            
         parsed: list[WebSearchResult] = []
-        for item in web_results[:top_k]:
+        for item in data[:top_k]:
             title = item.get("title", "").strip()
-            description = item.get("description", "").strip()
-            url = item.get("url", "").strip()
+            description = item.get("body", "").strip()
+            url = item.get("href", "").strip()
             if title and url:
                 parsed.append(
                     WebSearchResult(title=title, description=description, url=url)

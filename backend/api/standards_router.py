@@ -17,6 +17,8 @@ qco_reg = QcoRegistry()
 async def list_standards(
     division: str | None = None,
     query: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
 ) -> list[IndianStandard]:
     """Retrieve Indian Standards with optional division or text filter."""
     standards = loader.get_all_standards()
@@ -28,7 +30,7 @@ async def list_standards(
             s for s in standards
             if q in s.is_code.lower() or q in s.title.lower() or any(q in kw for kw in s.category_keywords)
         ]
-    return standards
+    return standards[offset:offset + min(limit, 200)]
 
 
 @router.get("/standards/{is_code}", response_model=IndianStandard)
@@ -47,8 +49,8 @@ async def list_qcos() -> dict[str, MandatoryQCO]:
 
 
 @router.get("/graph", response_model=dict[str, list[dict[str, Any]]])
-async def get_knowledge_graph() -> dict[str, list[dict[str, Any]]]:
-    """Generate node-link graph data for standard relationship visualization."""
+async def get_knowledge_graph(max_nodes: int = 500) -> dict[str, list[dict[str, Any]]]:
+    """Generate node-link graph data for standard relationship visualization. Returns the full graph, limited to max_nodes."""
     standards = loader.get_all_standards()
     nodes: list[dict[str, Any]] = []
     edges: list[dict[str, Any]] = []
@@ -75,4 +77,5 @@ async def get_knowledge_graph() -> dict[str, list[dict[str, Any]]]:
         if s.superseded_by:
             edges.append({"source": s.is_code, "target": s.superseded_by, "relation": "Superseded By"})
 
+    nodes = nodes[:max_nodes]
     return {"nodes": nodes, "edges": edges}

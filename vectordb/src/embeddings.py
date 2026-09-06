@@ -2,7 +2,7 @@ import logging
 import gc
 from typing import List
 import numpy as np
-from .config import EMBEDDING_MODEL
+from vectordb.src.config import EMBEDDING_MODEL
 
 logger = logging.getLogger(__name__)
 

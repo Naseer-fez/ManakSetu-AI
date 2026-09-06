@@ -13,6 +13,13 @@ from backend.engine.llm_service import get_llm_provider
 from backend.engine.orchestrator_helpers import (
     build_orchestrator_prompt, count_history_tokens, synthesize_contract_response,
 )
+from backend.engine.prompts.fast_model_prompts import (
+    FAST_MODEL_CONTEXT_COMPRESSION_PROMPT,
+    FAST_MODEL_DIRECT_QA_PROMPT,
+    FAST_MODEL_PDF_SYNTHESIZER_PROMPT,
+)
+from backend.engine.prompts.thinking_model_prompts import THINKING_MODEL_DEEP_AUDITOR_PROMPT
+from backend.engine.query_guardrails import QueryGuardrails
 from backend.engine.web_search_guardrail import WebSearchGuardrail
 from backend.engine.web_search_service import WebSearchService
 from backend.logger.app_logger import get_logger
@@ -53,16 +60,58 @@ class LlmOrchestrator:
         cloud_provider: BaseLlmProvider | None = None,
         local_provider: BaseLlmProvider | None = None,
     ) -> None:
-        self._distributed = app_settings.distributed_reasoning.mac_available
+        cp = cloud or cloud_provider
+        lp = local or local_provider
+        self._distributed = (
+            isinstance(cp, RemoteMacLlmProvider)
+            if cp is not None
+            else app_settings.distributed_reasoning.mac_available
+        )
         if self._distributed:
-            self._cloud = cloud or cloud_provider or RemoteMacLlmProvider()
-            self._local = local or local_provider or get_llm_provider("local")
+            self._cloud = cp or RemoteMacLlmProvider()
+            self._local = lp or get_llm_provider("local")
         else:
-            self._cloud = cloud or cloud_provider or _get_default_cloud_provider()
-            self._local = local or local_provider or get_llm_provider("local")
+            self._cloud = cp or _get_default_cloud_provider()
+            self._local = lp or get_llm_provider("local")
         self._timeout_sec = getattr(app_settings.distributed_reasoning, "mac_timeout_sec", timeout_sec)
         self._fallback = DeterministicFallbackProvider()
         self._reranker = DocumentChunkReranker()
+        
+        # Web Search initialization
+        self._ws_enabled = app_settings.web_search.enabled
+        self._ws_guardrail: WebSearchGuardrail | None = None
+        self._ws_service: WebSearchService | None = None
+        if self._ws_enabled:
+            self._ws_guardrail = WebSearchGuardrail(app_settings.web_search.guardrail_config)
+            self._ws_service = WebSearchService()
+
+    async def _try_web_search(self, query: str, tier: str) -> tuple[str, list[str]]:
+        """Try to execute a web search for the query if allowed by guardrails.
+        
+        Returns:
+            Tuple of (formatted_results_text, list_of_source_urls)
+        """
+        if not self._ws_enabled or not self._ws_guardrail or not self._ws_service:
+            return "", []
+            
+        guard = self._ws_guardrail.evaluate(query)
+        if not guard.approved:
+            return "", []
+            
+        if tier == "fast":
+            top_k = app_settings.web_search.fast_answer_top_k
+            max_tokens = app_settings.web_search.fast_answer_max_tokens
+        else:
+            top_k = app_settings.web_search.heavy_reasoning_top_k
+            max_tokens = app_settings.web_search.heavy_reasoning_max_tokens
+            
+        results = await self._ws_service.search(
+            scoped_query=guard.scoped_query, top_k=top_k, max_tokens=max_tokens
+        )
+        if not results:
+            return "", []
+            
+        return self._ws_service.format_for_prompt(results), [r.url for r in results]
 
     async def summarize_chat_history(self, chat_history: list[dict[str, str]]) -> str:
         """Compress long conversation history into a dense summary using local model."""
@@ -76,7 +125,7 @@ class LlmOrchestrator:
         kwargs = _safe_kwargs(self._local.generate_text, max_tokens=250, use_grammar=False)
         try:
             summary = await asyncio.wait_for(
-                self._local.generate_text(prompt, system_prompt="You are a context compression assistant.", **kwargs),
+                self._local.generate_text(prompt, system_prompt=FAST_MODEL_CONTEXT_COMPRESSION_PROMPT, **kwargs),
                 timeout=20.0,
             )
             return summary.strip() if summary else ""
@@ -96,7 +145,7 @@ class LlmOrchestrator:
         kwargs = _safe_kwargs(self._local.generate_text, max_tokens=300, use_grammar=False)
         try:
             return await asyncio.wait_for(
-                self._local.generate_text(prompt, system_prompt="You are a technical context synthesizer.", **kwargs),
+                self._local.generate_text(prompt, system_prompt=FAST_MODEL_PDF_SYNTHESIZER_PROMPT, **kwargs),
                 timeout=25.0,
             )
         except (asyncio.TimeoutError, RuntimeError, ValueError, OSError) as exc:
@@ -106,22 +155,52 @@ class LlmOrchestrator:
     async def execute_fast_answer(self, query: str, pdf_text: str = "") -> PipelineAnswerResponse:
         """Feature A: Rapid response executing solely on the local model."""
         tier = "local_2b" if self._distributed else "local_7b"
+        
+        # 1. Check Guardrails
+        fast_path = QueryGuardrails.check_fast_path(query)
+        if fast_path:
+            return PipelineAnswerResponse(
+                query=query, answer=fast_path, source_tier="guardrail_fast_path"
+            )
+            
+        if QueryGuardrails.check_out_of_context(query):
+            return PipelineAnswerResponse(
+                query=query, answer="I am the BIS assistant. I only answer questions related to Indian Standards and procurement.", source_tier="guardrail_rejection"
+            )
+
         prompt = f"User Query: {query}"
+        
+        ws_text, ws_sources = await self._try_web_search(query, "fast")
+        if ws_text:
+            prompt += f"\n\n{ws_text}"
+            
         if pdf_text.strip():
-            prompt += f"\n\nDocument Context:\n{pdf_text[:2000]}"
+            # Support RAG for Fast Models
+            chunks = self._reranker.retrieve_and_rerank_chunks(query, pdf_text, top_k=3)
+            chunk_texts = "\n\n".join(str(c.get("text", "")) for c in chunks)
+            if chunk_texts:
+                prompt += f"\n\nDocument Context:\n{chunk_texts}"
+            else:
+                prompt += f"\n\nDocument Context:\n{pdf_text[:2000]}"
         prompt += "\n\nProvide a rapid, precise answer on Indian Standards compliance and requirements."
         kwargs = _safe_kwargs(self._local.generate_text, max_tokens=256, use_grammar=False)
         try:
             raw = await asyncio.wait_for(
                 self._local.generate_text(
                     prompt,
-                    system_prompt="You are a fast Indian Standards assistant. Answer concisely.",
+                    system_prompt=FAST_MODEL_DIRECT_QA_PROMPT,
                     **kwargs,
                 ),
                 timeout=15.0,
             )
             if raw and len(raw.strip()) > 5:
-                return PipelineAnswerResponse(query=query, answer=raw.strip(), source_tier=tier)
+                return PipelineAnswerResponse(
+                    query=query, 
+                    answer=raw.strip(), 
+                    source_tier=tier,
+                    web_search_used=bool(ws_sources),
+                    web_sources=ws_sources
+                )
         except (asyncio.TimeoutError, RuntimeError, ValueError, OSError) as exc:
             logger.warning(f"Fast Answer local inference failed ({type(exc).__name__}): {exc}")
         return PipelineAnswerResponse(
@@ -132,6 +211,18 @@ class LlmOrchestrator:
         self, query: str, pdf_text: str = "", chat_history: list[dict[str, str]] | None = None, refresh_context: bool = False
     ) -> PipelineAnswerResponse:
         """Feature B & C: Heavy reasoning pipeline with optional Mac offloading and context synthesis."""
+        # 1. Check Guardrails
+        fast_path = QueryGuardrails.check_fast_path(query)
+        if fast_path:
+            return PipelineAnswerResponse(
+                query=query, answer=fast_path, source_tier="guardrail_fast_path"
+            )
+            
+        if QueryGuardrails.check_out_of_context(query):
+            return PipelineAnswerResponse(
+                query=query, answer="I am the BIS assistant. I only answer questions related to Indian Standards and procurement.", source_tier="guardrail_rejection"
+            )
+
         history_summary = ""
         if chat_history:
             if refresh_context or count_history_tokens(chat_history) > 3000:
@@ -142,30 +233,39 @@ class LlmOrchestrator:
             chunks = self._reranker.retrieve_and_rerank_chunks(query, pdf_text, top_k=5)
             synthesized_context = await self.synthesize_document_context(query, chunks)
 
+        ws_text, ws_sources = await self._try_web_search(query, "heavy")
+
         mac_prompt = f"User Query: {query}\n"
         if history_summary:
             mac_prompt += f"\n[Conversation History Summary]:\n{history_summary}\n"
         if synthesized_context:
             mac_prompt += f"\n[Synthesized Specification Context]:\n{synthesized_context}\n"
+        if ws_text:
+            mac_prompt += f"\n{ws_text}\n"
         mac_prompt += "\nPerform exhaustive technical reasoning, QCO compliance checking, and IS verification."
 
         if self._distributed:
             try:
-                raw = await asyncio.wait_for(self._cloud.generate_text(mac_prompt), timeout=self._timeout_sec)
+                raw = await asyncio.wait_for(
+                    self._cloud.generate_text(mac_prompt, system_prompt=THINKING_MODEL_DEEP_AUDITOR_PROMPT),
+                    timeout=self._timeout_sec,
+                )
                 if raw and len(raw.strip()) > 10:
                     return PipelineAnswerResponse(
                         query=query, answer=raw.strip(), source_tier="remote_mac",
                         synthesized_context=synthesized_context, summarized_history=history_summary,
+                        web_search_used=bool(ws_sources), web_sources=ws_sources
                     )
             except (asyncio.TimeoutError, OSError, ValueError) as exc:
                 logger.warning(f"Remote Mac reasoning unavailable ({type(exc).__name__}) -> Local fallback")
 
         try:
-            raw = await self._local.generate_text(mac_prompt)
+            raw = await self._local.generate_text(mac_prompt, system_prompt=THINKING_MODEL_DEEP_AUDITOR_PROMPT)
             if raw and len(raw.strip()) > 10:
                 return PipelineAnswerResponse(
                     query=query, answer=raw.strip(), source_tier="local_2b_fallback" if self._distributed else "local_7b",
                     synthesized_context=synthesized_context, summarized_history=history_summary,
+                    web_search_used=bool(ws_sources), web_sources=ws_sources
                 )
         except (RuntimeError, ValueError, OSError) as exc:
             logger.warning(f"Local reasoning failed ({type(exc).__name__}): {exc}")
@@ -176,6 +276,14 @@ class LlmOrchestrator:
 
     async def execute(self, contract: LlmInputContract) -> LlmStandardizedResponse:
         """Legacy / Standard execution entry point."""
+        # 1. Check Guardrails
+        fast_path = QueryGuardrails.check_fast_path(contract.query)
+        if fast_path:
+            return synthesize_contract_response(contract, fast_path, "guardrail_fast_path")
+            
+        if QueryGuardrails.check_out_of_context(contract.query):
+            return synthesize_contract_response(contract, "I am the BIS assistant. I only answer questions related to Indian Standards and procurement.", "guardrail_rejection")
+
         if getattr(self, "_distributed", False) and contract.document_chunks:
             synth = await self.synthesize_document_context(contract.query, contract.document_chunks)
             contract.document_chunks = [{"text": synth, "file_name": "Synthesized Context", "page_number": 1}]

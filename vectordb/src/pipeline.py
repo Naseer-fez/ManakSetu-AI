@@ -2,13 +2,12 @@ import logging
 import os
 import time
 import pandas as pd
-from pathlib import Path
-from .config import DATASET_PATH, PROCESSED_DIR, BATCH_SIZE
-from .load_data import load_dataset
-from .clean_text import process_dataframe_text
-from .chunk_text import create_chunks
-from .embeddings import EmbeddingService
-from .vector_store import VectorStore
+from vectordb.src.config import DATASET_PATH, PROCESSED_DIR, BATCH_SIZE
+from vectordb.src.load_data import load_dataset
+from vectordb.src.clean_text import process_dataframe_text
+from vectordb.src.chunk_text import create_chunks
+from vectordb.src.embeddings import EmbeddingService
+from vectordb.src.vector_store import VectorStore
 
 logging.basicConfig(
     level=logging.INFO,

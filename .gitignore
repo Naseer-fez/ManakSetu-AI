@@ -11,10 +11,20 @@ backend/logs/
 
 # Large Model Weights & Binaries (Over GitHub 100MB limit)
 llm/
+Mac/models/
+Mac/vectordb/
+Mac.zip
+New folder/
+*.zip
+*.tar.gz
+*.tgz
+*.7z
 *.gguf
 *.bin
 *.safetensors
 *.onnx
+*.wav
+*.mp3
 
 # Vector Databases & SQLite Storage
 *.sqlite3

@@ -1,0 +1,25 @@
+server:
+  host: "0.0.0.0"
+  port: 5000
+  log_level: "INFO"
+
+llm:
+  model_path: "models/llm/Qwen2.5-7B-Instruct-Q4_K_M.gguf"
+  lora_path: "models/llm/final_adapter.gguf"
+  lora_scale: 1.0
+  n_ctx: 32768
+  n_gpu_layers: -1 # Will utilize Metal Performance Shaders (MPS) on Mac
+  temperature: 0.2
+  max_tokens: 2048
+
+embedding:
+  model_path: "models/embedding/paraphrase-multilingual-MiniLM-L12-v2"
+  device: "mps"
+
+reranker:
+  model_path: "models/reranker/bge-reranker-v2-m3"
+  device: "mps"
+
+vectordb:
+  path: "vectordb/data/chroma"
+  collection_name: "bis_standards_collection"

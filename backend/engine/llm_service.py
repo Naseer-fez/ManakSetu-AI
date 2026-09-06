@@ -1,8 +1,10 @@
 """Unified LLM service layer with provider factory, singleton caching, and domain reasoning."""
 from __future__ import annotations
+import os
 from pathlib import Path
 import threading
 from typing import Any, AsyncGenerator
+from backend.config.paths import LLM_DIR
 from backend.config.settings import app_settings
 from backend.engine.llm_interface import BaseLlmProvider
 from backend.engine.llm_providers import (
@@ -14,6 +16,7 @@ from backend.engine.prompts import (
     format_tender_clause_prompt, format_testing_matrix_prompt
 )
 from backend.engine.embedding_service import get_embedding_service
+from backend.engine.query_guardrails import QueryGuardrails
 from backend.logger.app_logger import get_logger
 from backend.models.standard_model import IndianStandard
 
@@ -77,11 +80,17 @@ def get_llm_provider(provider_type: str | None = None) -> BaseLlmProvider:
             if sel == "local_2b":
                 prep_path = app_settings.distributed_reasoning.local_preprocessor_model
                 if not Path(prep_path).exists():
-                    for alt in ("llm/Qwen2.5-3B-Instruct-Q4_K_M.gguf", "llm/gemma-2-2b-it-Q4_K_M.gguf"):
-                        if Path(alt).exists():
-                            prep_path = alt
+                    for alt in (LLM_DIR / "Qwen2.5-3B-Instruct-Q4_K_M.gguf", LLM_DIR / "gemma-2-2b-it-Q4_K_M.gguf"):
+                        if alt.exists():
+                            prep_path = str(alt)
                             break
-                _CACHE[sel] = LocalGgufLlmProvider(model_path=prep_path)
+                _CACHE[sel] = LocalGgufLlmProvider(
+                    model_path=prep_path,
+                    n_ctx=app_settings.distributed_reasoning.fast_model_n_ctx,
+                    n_gpu_layers=app_settings.distributed_reasoning.fast_model_n_gpu_layers,
+                    rope_freq_scale=app_settings.distributed_reasoning.fast_model_rope_freq_scale,
+                    kv_quant=app_settings.distributed_reasoning.fast_model_kv_quant,
+                )
             elif sel == "remote_mac":
                 _CACHE[sel] = RemoteMacLlmProvider(
                     endpoint=app_settings.distributed_reasoning.mac_endpoint
@@ -95,7 +104,8 @@ def get_llm_provider(provider_type: str | None = None) -> BaseLlmProvider:
             elif sel == "openai":
                 _CACHE[sel] = OpenAiLlmProvider()
             elif sel == "ollama":
-                _CACHE[sel] = OpenAiLlmProvider(base_url="http://localhost:11434/v1")
+                ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
+                _CACHE[sel] = OpenAiLlmProvider(base_url=ollama_url)
             else:
                 _CACHE[sel] = DeterministicFallbackProvider()
         return _CACHE[sel]
@@ -152,18 +162,27 @@ class LlmService:
         try:
             async for chunk in self._provider.generate_text_stream(user_p, MASTER_SYSTEM_PROMPT):
                 yield chunk
-        except (ValueError, RuntimeError, OSError, Exception) as exc:
+        except (ValueError, RuntimeError, OSError, TypeError) as exc:
             logger.warning(f"LlmService: Stream error ({type(exc).__name__}: {exc})")
             yield "\n[Stream Interrupted]"
 
     async def answer_procurement_query(self, question: str, context_standards: list[IndianStandard], document_chunks: list[Any] | None = None, pdf_text: str | None = None, chat_history: list[Any] | None = None) -> str:
+        guard = QueryGuardrails.evaluate(question)
+        if not guard.allowed:
+            return guard.response or ""
+
         c_str = "\n".join(f"- {s.is_code}: {s.title}" for s in context_standards[:5])
-        
+
         history_str = ""
         if chat_history:
-            formatted_history = "\n".join(f"{msg.role.capitalize()}: {msg.content}" for msg in chat_history)
+            def _fmt_turn(m: Any) -> str:
+                r = m.get("role", "user") if isinstance(m, dict) else getattr(m, "role", "user")
+                c = m.get("content", "") if isinstance(m, dict) else getattr(m, "content", "")
+                return f"{str(r).capitalize()}: {str(c)}"
+
+            formatted_history = "\n".join(_fmt_turn(msg) for msg in chat_history)
             history_str = f"Previous Conversation:\n{formatted_history}\n\n"
-            
+
         user_p = f"{history_str}Current Procurement Query: {question}\n\nAvailable Standards:\n{c_str}\n\nDocument Excerpts:\n{format_chunk_excerpts(document_chunks)}"
         if pdf_text:
             relevant_chunks = _retrieve_relevant_chunks(pdf_text, question)
@@ -178,13 +197,23 @@ class LlmService:
         return "No LLM model is currently available to answer this query. Please check model status."
 
     async def answer_procurement_query_stream(self, question: str, context_standards: list[IndianStandard], document_chunks: list[Any] | None = None, pdf_text: str | None = None, chat_history: list[Any] | None = None) -> AsyncGenerator[str, None]:
+        guard = QueryGuardrails.evaluate(question)
+        if not guard.allowed:
+            yield guard.response or ""
+            return
+
         c_str = "\n".join(f"- {s.is_code}: {s.title}" for s in context_standards[:5])
-        
+
         history_str = ""
         if chat_history:
-            formatted_history = "\n".join(f"{msg.role.capitalize()}: {msg.content}" for msg in chat_history)
+            def _fmt_turn(m: Any) -> str:
+                r = m.get("role", "user") if isinstance(m, dict) else getattr(m, "role", "user")
+                c = m.get("content", "") if isinstance(m, dict) else getattr(m, "content", "")
+                return f"{str(r).capitalize()}: {str(c)}"
+
+            formatted_history = "\n".join(_fmt_turn(msg) for msg in chat_history)
             history_str = f"Previous Conversation:\n{formatted_history}\n\n"
-            
+
         user_p = f"{history_str}Current Procurement Query: {question}\n\nAvailable Standards:\n{c_str}\n\nDocument Excerpts:\n{format_chunk_excerpts(document_chunks)}"
         if pdf_text:
             relevant_chunks = _retrieve_relevant_chunks(pdf_text, question)
@@ -193,6 +222,7 @@ class LlmService:
         try:
             async for chunk in self._provider.generate_text_stream(user_p, MASTER_SYSTEM_PROMPT):
                 yield chunk
-        except (ValueError, RuntimeError, OSError, Exception) as exc:
+        except (ValueError, RuntimeError, OSError, TypeError) as exc:
             logger.warning(f"LlmService: Stream query error ({type(exc).__name__}: {exc})")
             yield "\n[Stream Interrupted]"
+

@@ -20,7 +20,7 @@ class DocumentParser:
             md_text = pymupdf4llm.to_markdown(str(file_path))
             if md_text and len(md_text.strip()) > 30:
                 return md_text.strip()
-        except Exception:
+        except (ImportError, RuntimeError, OSError, ValueError):
             pass
 
         text_parts: list[str] = []
@@ -45,7 +45,9 @@ class DocumentParser:
         """Extract text from Word .docx file."""
         try:
             doc = docx.Document(str(file_path))
-            return "\n".join(p.text for p in doc.paragraphs if p.text)
+            paragraphs = [p.text for p in doc.paragraphs if p.text]
+            tables = [" | ".join(cell.text for cell in row.cells) for table in doc.tables for row in table.rows]
+            return "\n".join(paragraphs + [row for row in tables if row])
         except (docx.opc.exceptions.PackageNotFoundError, OSError, ValueError):
             return ""
 
@@ -57,8 +59,10 @@ class DocumentParser:
         ext = path.suffix.lower()
         if ext == ".pdf":
             return self.extract_text_from_pdf(path)
-        if ext in (".docx", ".doc"):
+        if ext == ".docx":
             return self.extract_text_from_docx(path)
+        if ext == ".doc":
+            return ""  # Legacy .doc binary format not supported; convert to .docx
         if ext in (".png", ".jpg", ".jpeg", ".webp", ".tiff", ".bmp"):
             return self._ocr.extract_text_from_image(path)
         try:

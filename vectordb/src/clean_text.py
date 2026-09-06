@@ -18,7 +18,7 @@ def clean_text(text: str) -> str:
     
     # 3. Fix simple OCR spacing issues where letters are separated by spaces (e.g. "f l o w")
     # This is conservative: only fix single letters separated by space that form a word of at least 3 letters
-    def fix_ocr_spacing(match):
+    def fix_ocr_spacing(match: re.Match[str]) -> str:
         return match.group(0).replace(' ', '')
         
     text = re.sub(r'(?:\b[a-zA-Z]\s){2,}\b[a-zA-Z]\b', fix_ocr_spacing, text)

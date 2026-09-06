@@ -6,8 +6,6 @@ server:
     - "http://localhost:3000"
     - "http://localhost:5173"
     - "http://127.0.0.1:5173"
-    - "http://192.168.1.9:5173"
-    - "*"
 
 storage:
   data_dir: "backend/data"
@@ -22,7 +20,9 @@ ai_engine:
   top_k_recommendations: 5
   hybrid_alpha: 0.65
   enable_gpu: true
-  reranker_model: "llm/bge-reranker-v2-m3"
+  require_cuda: true
+  gpu_device: "cuda:0"
+  reranker_model: "llm/bge-reranker-small"
   reranker_candidate_pool: 25
   domain_expansions_file: "backend/config/domain_expansions.yaml"
 
@@ -30,7 +30,7 @@ llm:
   provider: "local_gguf"
   model_name: "Qwen2.5-7B-Instruct-Q4_K_M"
   model_path: "llm/Qwen2.5-7B-Instruct-Q4_K_M.gguf"
-  n_ctx: 32768
+  n_ctx: 4096
   n_threads: 4
   n_gpu_layers: 18
   chat_format: "chatml"
@@ -40,6 +40,11 @@ llm:
   max_tokens: 2048
   enable_grammar: true
   grammar_file: "backend/engine/grammars/bis_output.gbnf"
+  repeat_penalty: 1.18
+  frequency_penalty: 0.1
+  presence_penalty: 0.1
+  repeat_last_n: 256
+  top_p: 0.9
   max_queue_size: 5
 
 cache:
@@ -48,10 +53,11 @@ cache:
 
 voice:
   stt_provider: "faster_whisper"
-  stt_model_path: "llm/faster-whisper-tiny"
+  stt_model_path: "llm/faster-whisper-small"
   stt_device: "cpu"
   stt_compute_type: "int8"
   stt_beam_size: 1
+  stt_task: "translate"
   tts_provider: "mms_vits"
   tts_eng_model_path: "llm/mms-tts-eng"
   tts_hin_model_path: "llm/mms-tts-hin"
@@ -60,6 +66,9 @@ voice:
   max_audio_duration_sec: 60
   audio_sample_rate: 16000
   tts_cache_dir: "backend/data/tts_cache"
+  live_enabled: true
+  live_max_turns: 5
+  live_sentence_delimiters: ".!?"
 
 bis_scraper:
   base_url: "https://www.services.bis.gov.in/php/BIS_2.0/bisconnect/knowyourstandards/indian_standards/isdetails"
@@ -85,12 +94,15 @@ vector_database:
 distributed_reasoning:
   mac_available: true
   mac_endpoint: "http://localhost:5000/reason"
-  local_preprocessor_model: "llm/Qwen2.5-3B-Instruct-Q4_K_M.gguf"
+  local_preprocessor_model: "llm/qwen2.5-3b-instruct.Q4_K_M-finetuned.gguf"
+  fast_model_n_ctx: 65536
+  fast_model_n_gpu_layers: 36
+  fast_model_kv_quant: "q4_0"
+  fast_model_rope_freq_scale: 0.5
 
 web_search:
   enabled: true
-  provider: "brave"
-  api_key_env_var: "BRAVE_SEARCH_API_KEY"
+  provider: "duckduckgo"
   request_timeout_sec: 15
   fast_answer_top_k: 2
   fast_answer_max_tokens: 300

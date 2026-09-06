@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
+from backend.models.document_contracts import ComplianceFinding, ComplianceState
 from backend.models.recommendation_model import StandardRecommendation
 
 
@@ -34,3 +35,7 @@ class TenderAnalysisReport(BaseModel):
     mandatory_qco_coverage: float = 100.0
     complete_spec_clause_text: str = ""
     raw_text: str = ""
+    findings: list[ComplianceFinding] = Field(default_factory=list)
+    overall_state: ComplianceState = ComplianceState.COMPLIANT
+    mandatory_standards: list[str] = Field(default_factory=list)
+    compliance_run_id: str | None = None
