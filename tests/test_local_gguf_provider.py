@@ -306,7 +306,6 @@ class TestRepetitionGuards:
         assert call_kwargs.kwargs.get("repeat_penalty") == 1.18
         assert call_kwargs.kwargs.get("frequency_penalty") == 0.1
         assert call_kwargs.kwargs.get("presence_penalty") == 0.1
-        assert call_kwargs.kwargs.get("repeat_last_n") == 256
         assert call_kwargs.kwargs.get("top_p") == 0.9
 
     def test_stream_halts_on_runaway_repetition(self, mock_settings: Any) -> None:

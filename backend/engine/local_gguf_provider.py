@@ -19,13 +19,12 @@ _STREAM_END = object()
 _MAX_CONSECUTIVE_REPEATS = 8
 
 
-def _build_sampling_kwargs() -> dict[str, float | int]:
+def _build_sampling_kwargs() -> dict[str, float]:
     """Assemble repetition-guard sampling kwargs from app config."""
     return {
         "repeat_penalty": app_settings.llm.repeat_penalty,
         "frequency_penalty": app_settings.llm.frequency_penalty,
         "presence_penalty": app_settings.llm.presence_penalty,
-        "repeat_last_n": app_settings.llm.repeat_last_n,
         "top_p": app_settings.llm.top_p,
     }
 
@@ -306,6 +305,8 @@ class LocalGgufLlmProvider(BaseLlmProvider):
         use_grammar: bool = False,
         **kwargs: Any,
     ) -> str:
+        if not hasattr(self, "_queue_lock"):
+            self._queue_lock = asyncio.Lock()
         async with self._queue_lock:
             if self._queue_count >= self._max_queue:
                 raise BackpressureError(f"LLM inference queue is full ({self._max_queue} pending)")
@@ -334,6 +335,8 @@ class LocalGgufLlmProvider(BaseLlmProvider):
         use_grammar: bool = False,
         **kwargs: Any,
     ) -> AsyncGenerator[str, None]:
+        if not hasattr(self, "_queue_lock"):
+            self._queue_lock = asyncio.Lock()
         async with self._queue_lock:
             if self._queue_count >= self._max_queue:
                 raise BackpressureError(f"LLM inference queue is full ({self._max_queue} pending)")
