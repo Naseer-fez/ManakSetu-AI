@@ -225,7 +225,7 @@ class LlmOrchestrator:
 
         history_summary = ""
         if chat_history:
-            if refresh_context or count_history_tokens(chat_history) > 3000:
+            if refresh_context or count_history_tokens(chat_history) > 24000:
                 history_summary = await self.summarize_chat_history(chat_history)
 
         synthesized_context = ""
@@ -238,6 +238,9 @@ class LlmOrchestrator:
         mac_prompt = f"User Query: {query}\n"
         if history_summary:
             mac_prompt += f"\n[Conversation History Summary]:\n{history_summary}\n"
+        elif chat_history:
+            raw_history = "\n".join(f"{m.get('role', 'user').capitalize()}: {m.get('content', '')}" for m in chat_history)
+            mac_prompt += f"\n[Conversation History]:\n{raw_history}\n"
         if synthesized_context:
             mac_prompt += f"\n[Synthesized Specification Context]:\n{synthesized_context}\n"
         if ws_text:
