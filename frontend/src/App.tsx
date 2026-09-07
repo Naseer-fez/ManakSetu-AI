@@ -7,12 +7,13 @@ import { KnowledgeGraphView } from "./components/KnowledgeGraphView";
 import { QcoExplorerView } from "./components/QcoExplorerView";
 import { GemSimulatorView } from "./components/GemSimulatorView";
 import { AssistantChatDrawer } from "./components/AssistantChatDrawer";
-import { WorkspaceView } from "./components/WorkspaceView";
+import { WorkspaceDesk } from "./components/workspace_desk/WorkspaceDesk";
 import { TenderAnalyzerView } from "./components/TenderAnalyzerView";
 import { RemembranceProvider } from "./context/RemembranceContext";
 
 const MainContent: React.FC = () => {
-  const [activeTab, setActiveTab] = useState("recommend");
+  const [activeTab, setActiveTab] = useState("workspace");
+  const [, setPdfText] = useState("");
   const isTender = activeTab === "tender" || activeTab === "radar";
   const isWorkspace = activeTab === "workspace";
   const isDocStation = isTender || isWorkspace;
@@ -38,7 +39,9 @@ const MainContent: React.FC = () => {
       >
         <div className={activeTab === "recommend" ? "block" : "hidden"}><RecommendationTab /></div>
         <div className={isTender ? "h-full w-full flex flex-col flex-1 min-h-0" : "hidden"}><TenderAnalyzerView /></div>
-        <div className={isWorkspace ? "h-full w-full flex flex-col flex-1 min-h-0" : "hidden"}><WorkspaceView viewMode="pdf" /></div>
+        <div className={isWorkspace ? "h-full w-full flex flex-col flex-1 min-h-0 overflow-y-auto" : "hidden"}>
+          <WorkspaceDesk onNavigate={setActiveTab} onSetPdfText={setPdfText} />
+        </div>
         <div className={activeTab === "chat" ? "h-full w-full flex flex-col flex-1 min-h-0" : "hidden"}><ChatView /></div>
         <div className={activeTab === "speak_to_ai" ? "block" : "hidden"}><SpeakToAiView /></div>
         <div className={activeTab === "graph" ? "h-full w-full" : "hidden"}><KnowledgeGraphView /></div>
