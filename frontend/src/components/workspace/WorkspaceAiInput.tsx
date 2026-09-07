@@ -22,19 +22,19 @@ export const WorkspaceAiInput: React.FC<WorkspaceAiInputProps> = ({
   };
 
   return (
-    <div className="p-3 border-t border-white/10 bg-white/5 shrink-0 backdrop-blur-md">
-      <div className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-2xl px-3.5 py-2 focus-within:border-apple-indigo/60 transition-all shadow-inner">
+    <div className="p-3 border-t border-gov-border dark:border-slate-800 bg-gov-offwhite dark:bg-slate-900/50 shrink-0">
+      <div className="flex items-center gap-2 bg-white dark:bg-[#0c1626] border border-gov-border dark:border-slate-700 rounded-lg px-3 py-1.5 focus-within:ring-2 focus-within:ring-gov-blue transition-all shadow-sm">
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSend()}
           placeholder={fileName ? `Ask about ${fileName}...` : "Ask about tender requirements..."}
-          className="flex-1 bg-transparent text-xs text-white placeholder-white/40 focus:outline-none"
+          className="flex-1 bg-transparent text-xs text-gov-text dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none"
         />
         <button
           onClick={handleSend}
           disabled={loading || !input.trim()}
-          className="p-1.5 bg-apple-blue hover:bg-apple-blue/80 disabled:opacity-40 rounded-xl text-white transition-all shadow-md shadow-apple-blue/20 shrink-0"
+          className="p-1.5 bg-gov-blue hover:bg-blue-700 disabled:opacity-40 rounded text-white transition-all shadow-sm shrink-0"
           title="Send query"
         >
           <Send className="w-3.5 h-3.5" />

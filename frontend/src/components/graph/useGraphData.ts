@@ -18,7 +18,7 @@ export function useGraphData() {
   const loadData = useCallback(async () => {
     setLoading(true); setError(false);
     try { setGraphData(await fetchKnowledgeGraph()); }
-    catch { setError(true); }
+    catch (err: unknown) { setError(true); }
     finally { setLoading(false); }
   }, []);
 

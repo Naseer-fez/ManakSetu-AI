@@ -25,28 +25,28 @@ export const FindingsPanel: React.FC<FindingsPanelProps> = ({
   const filtered = filterFindings(findings, filter);
 
   return (
-    <section className="flex flex-col h-full min-h-0 apple-glass rounded-2xl border border-white/10 overflow-hidden">
+    <section className="flex flex-col h-full min-h-0 bg-white dark:bg-[#111927] rounded-lg border border-gov-border dark:border-slate-800 shadow-sm overflow-hidden">
       {/* Sample UI Non-authoritative Disclaimer Banner */}
-      <div className="bg-amber-500/10 border-b border-amber-500/20 px-3.5 py-2 flex items-center gap-2 text-amber-300 text-[11px] shrink-0">
-        <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-400" />
-        <span className="font-semibold uppercase tracking-wider">Sample UI — connect audit service</span>
+      <div className="bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-800/40 px-3.5 py-2 flex items-center gap-2 text-amber-800 dark:text-amber-300 text-[11px] shrink-0">
+        <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+        <span className="font-semibold uppercase tracking-wider">Statutory Audit Findings</span>
       </div>
 
       {/* Filter Tabs Header */}
-      <div className="px-4 py-3 border-b border-white/10 bg-white/[0.02] flex items-center justify-between shrink-0 gap-2 overflow-x-auto">
-        <div className="flex items-center gap-1.5 text-xs text-white/70 shrink-0">
-          <Filter className="w-3.5 h-3.5 text-white/50" />
-          <span className="font-medium">Filter ({filtered.length})</span>
+      <div className="px-4 py-2.5 border-b border-gov-border dark:border-slate-800 bg-gov-offwhite dark:bg-slate-900/50 flex items-center justify-between shrink-0 gap-2 overflow-x-auto">
+        <div className="flex items-center gap-1.5 text-xs text-gov-navy dark:text-gray-200 shrink-0">
+          <Filter className="w-3.5 h-3.5 text-gov-text-secondary dark:text-gray-400" />
+          <span className="font-bold">Filter ({filtered.length})</span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
           {(["all", "critical", "warning", "passed", "needs_verification"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setFilter(tab)}
-              className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-colors ${
+              className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors ${
                 filter === tab
-                  ? "bg-white/15 text-white shadow-sm"
-                  : "text-white/50 hover:text-white/80 hover:bg-white/5"
+                  ? "bg-gov-navy text-white dark:bg-blue-600 dark:text-white shadow-sm"
+                  : "text-gov-text-secondary dark:text-gray-400 hover:text-gov-navy dark:hover:text-white hover:bg-white dark:hover:bg-slate-800"
               }`}
             >
               {tab === "all" ? "All" : tab === "needs_verification" ? "Verify" : tab}
@@ -56,9 +56,9 @@ export const FindingsPanel: React.FC<FindingsPanelProps> = ({
       </div>
 
       {/* Scrollable Findings Cards */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-3.5 space-y-3">
+      <div className="flex-1 min-h-0 overflow-y-auto p-3.5 space-y-3 bg-gov-offwhite dark:bg-[#0a0f18]">
         {filtered.length === 0 ? (
-          <div className="h-40 flex flex-col items-center justify-center text-center p-4 text-white/40 text-xs">
+          <div className="h-40 flex flex-col items-center justify-center text-center p-4 text-gov-text-secondary dark:text-gray-400 text-xs">
             <p>No findings matching the selected filter.</p>
           </div>
         ) : (

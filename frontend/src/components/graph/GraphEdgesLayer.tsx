@@ -1,6 +1,6 @@
 import React from "react";
-import type { PositionedNode, GraphEdgeData } from "./types";
-import { GraphEdge } from "./GraphEdge";
+import type { PositionedNode, GraphEdgeData } from "@/components/graph/types";
+import { GraphEdge } from "@/components/graph/GraphEdge";
 
 interface GraphEdgesLayerProps {
   edges: GraphEdgeData[];

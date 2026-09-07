@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { WorkspacePdfHeader } from "./WorkspacePdfHeader";
-import { WorkspacePdfContent } from "./WorkspacePdfContent";
-import { WorkspaceAuditContent } from "./WorkspaceAuditContent";
-import type { TenderAnalysisReport } from "../../types";
+import { WorkspacePdfHeader } from "@/components/workspace/WorkspacePdfHeader";
+import { WorkspacePdfContent } from "@/components/workspace/WorkspacePdfContent";
+import { WorkspaceAuditContent } from "@/components/workspace/WorkspaceAuditContent";
+import type { TenderAnalysisReport } from "@/types";
 
 interface WorkspacePdfCardProps {
   file: File;
@@ -20,7 +20,7 @@ export const WorkspacePdfCard: React.FC<WorkspacePdfCardProps> = ({
   const [activeTab, setActiveTab] = useState<"pdf" | "audit">("pdf");
 
   return (
-    <section className="flex flex-col h-full min-h-0 apple-glass rounded-3xl border border-white/10 shadow-2xl overflow-hidden">
+    <section className="flex flex-col h-full min-h-0 bg-white dark:bg-[#111927] rounded-lg border border-gov-border dark:border-slate-800 shadow-sm overflow-hidden">
       <WorkspacePdfHeader
         fileName={file.name}
         fileSize={file.size}

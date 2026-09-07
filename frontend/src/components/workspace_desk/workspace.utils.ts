@@ -1,3 +1,4 @@
+import type { Editor } from "@tiptap/react";
 import type { ComplianceFindingItem, FindingStatus } from "@/components/workspace_desk/types";
 
 export function formatFileSize(bytes: number): string {
@@ -23,6 +24,31 @@ export function filterFindings(
 
 export function generateAiPromptForFinding(finding: ComplianceFindingItem): string {
   return `Regarding ${finding.clauseLocation}: The audit notes "${finding.explanation}". How should I redraft this tender clause to resolve the issue?`;
+}
+
+export function replaceExactEditorBlock(editor: Editor | null, sourceText: string, replacementText: string): boolean {
+  if (!editor || !sourceText.trim() || !replacementText.trim()) return false;
+  const normalizeClause = (value: string): string => value
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/[|*_`]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const normalizedSource = normalizeClause(sourceText);
+  let from: number | null = null;
+  let to: number | null = null;
+  editor.state.doc.descendants((node, position) => {
+    if (from !== null || !node.isTextblock || normalizeClause(node.textContent) !== normalizedSource) return true;
+    from = position + 1;
+    to = from + node.content.size;
+    return false;
+  });
+  if (from === null || to === null) return false;
+  const replacement = editor.schema.text(replacementText);
+  editor.chain().focus().command(({ tr }) => {
+    tr.replaceWith(from as number, to as number, replacement);
+    return true;
+  }).run();
+  return true;
 }
 
 export function getStatusLabel(status: FindingStatus): string {

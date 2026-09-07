@@ -92,6 +92,7 @@ export interface ExtractedLineItem {
   item_id: number;
   product_title: string;
   spec_summary: string;
+  source_text?: string;
   cited_standards: string[];
   outdated_citations: string[];
   recommended_standards: StandardRecommendation[];
@@ -112,6 +113,18 @@ export interface TenderAnalysisReport {
   mandatory_qco_coverage: number;
   complete_spec_clause_text: string;
   raw_text?: string;
+  findings?: WorkspaceFinding[];
+}
+
+export interface WorkspaceFinding {
+  finding_id: string;
+  severity: string;
+  state: string;
+  category: string;
+  message: string;
+  corrective_action: string;
+  source_text: string;
+  clause_location: string;
 }
 
 export interface GraphData {
@@ -173,7 +186,30 @@ export interface WorkspaceAnalysis {
     dataset_version: string;
     coverage: number;
     export_blocked: boolean;
-    findings: Array<{ severity: string; state: string; category: string; message: string }>;
+    findings: WorkspaceFinding[];
   };
   revision: { revision_id: string; status: string; changes: string[] };
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  text: string;
+}
+
+export interface IssueModalTarget {
+  key: string;
+  title: string;
+  category: string;
+  severity: string;
+  message: string;
+  correctiveAction?: string;
+  standards?: string[];
+}
+
+export interface TabData {
+  file: File | null;
+  pdfBlobUrl: string | null;
+  pdfText: string;
+  analysis: WorkspaceAnalysis | null;
+  chatMessages: ChatMessage[];
 }

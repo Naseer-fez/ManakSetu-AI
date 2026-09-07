@@ -1,11 +1,11 @@
 import React from "react";
-import { useWorkspace } from "./workspace/useWorkspace";
-import { WorkspaceDropzone } from "./workspace/WorkspaceDropzone";
-import { WorkspaceLoadingView } from "./workspace/WorkspaceLoadingView";
-import { WorkspaceLayout } from "./workspace/WorkspaceLayout";
-import { WorkspaceFloatingAiButton } from "./workspace/WorkspaceFloatingAiButton";
-import { WorkspaceToolbar } from "./workspace/WorkspaceToolbar";
-import { IndependentIssueChatModal } from "./workspace/IndependentIssueChatModal";
+import { useWorkspace } from "@/components/workspace/useWorkspace";
+import { WorkspaceDropzone } from "@/components/workspace/WorkspaceDropzone";
+import { WorkspaceLoadingView } from "@/components/workspace/WorkspaceLoadingView";
+import { WorkspaceLayout } from "@/components/workspace/WorkspaceLayout";
+import { WorkspaceFloatingAiButton } from "@/components/workspace/WorkspaceFloatingAiButton";
+import { WorkspaceToolbar } from "@/components/workspace/WorkspaceToolbar";
+import { IndependentIssueChatModal } from "@/components/workspace/IndependentIssueChatModal";
 
 interface WorkspaceViewProps {
   setPdfText?: (text: string) => void;

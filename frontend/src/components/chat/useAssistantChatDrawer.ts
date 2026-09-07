@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { fetchFastAnswer, fetchHeavyReasoning, refreshChatContext } from "../../services/pipeline.service";
-import { useRemembrance } from "../../context/RemembranceContext";
-import type { ChatMessage } from "../ChatMessageItem";
+import { fetchFastAnswer, fetchHeavyReasoning, refreshChatContext } from "@/services/pipeline.service";
+import { useRemembrance } from "@/context/RemembranceContext";
+import type { ChatMessage } from "@/components/ChatMessageItem";
 
 export function useAssistantChatDrawer(propPdfText?: string) {
   const rem = useRemembrance();
@@ -28,7 +28,7 @@ export function useAssistantChatDrawer(propPdfText?: string) {
     try {
       const summary = await refreshChatContext(messages.map(m => ({ role: m.role, content: m.text })));
       if (summary) setMessages([{ role: "assistant", text: `[Context Compressed]: ${summary}` }]);
-    } catch {
+    } catch (err: unknown) {
       // Keep existing history on refresh failure
     } finally { setRefreshing(false); }
   };
@@ -48,7 +48,7 @@ export function useAssistantChatDrawer(propPdfText?: string) {
         if (!prev.length) return prev;
         return [...prev.slice(0, prev.length - 1), { role: "assistant", text: res.answer }];
       });
-    } catch {
+    } catch (err: unknown) {
       setMessages(prev => {
         if (!prev.length) return prev;
         return [...prev.slice(0, prev.length - 1), { role: "assistant", text: "AI reasoning service is currently unavailable. Please check system status." }];

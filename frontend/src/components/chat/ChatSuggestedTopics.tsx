@@ -16,7 +16,7 @@ export const ChatSuggestedTopics: React.FC<ChatSuggestedTopicsProps> = ({
 }) => {
   return (
     <div className="pt-8 pb-4 space-y-3">
-      <p className="text-xs font-semibold uppercase tracking-wider text-white/40 text-center">
+      <p className="text-xs font-bold uppercase tracking-wider text-gov-text-secondary dark:text-gray-400 text-center">
         Suggested Topics
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto">
@@ -25,12 +25,12 @@ export const ChatSuggestedTopics: React.FC<ChatSuggestedTopicsProps> = ({
             key={idx}
             type="button"
             onClick={() => onSelectPrompt(sp.query)}
-            className="p-3 rounded-2xl apple-glass text-left hover:border-apple-blue/50 hover:bg-white/10 transition-all group"
+            className="p-3.5 rounded-lg bg-white dark:bg-[#111927] border border-gov-border dark:border-slate-800 text-left hover:border-gov-blue dark:hover:border-blue-500 hover:shadow-md transition-all group shadow-sm"
           >
-            <div className="text-xs font-semibold text-white/90 group-hover:text-apple-blue transition-colors">
+            <div className="text-xs font-bold text-gov-navy dark:text-white group-hover:text-gov-blue dark:group-hover:text-blue-400 transition-colors">
               {sp.label}
             </div>
-            <div className="text-[11px] text-white/50 line-clamp-1 mt-0.5">
+            <div className="text-[11px] text-gov-text-secondary dark:text-gray-400 line-clamp-1 mt-0.5">
               {sp.query}
             </div>
           </button>

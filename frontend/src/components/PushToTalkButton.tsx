@@ -31,7 +31,7 @@ export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
       };
       rec.start();
       setIsRecording(true);
-    } catch {
+    } catch (err: unknown) {
       setIsRecording(false);
     }
   };

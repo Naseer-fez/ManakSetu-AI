@@ -1,56 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import type { WorkspaceAnalysis, ExtractedLineItem } from "../types";
-import type { ChatMessage } from "../components/ChatMessageItem";
+import type { WorkspaceAnalysis, ExtractedLineItem, ChatMessage, TabData, IssueModalTarget } from "@/types";
+import type { RemembranceContextType } from "@/context/remembrance.types";
 
-export interface IssueModalTarget {
-  key: string;
-  title: string;
-  category: string;
-  severity: string;
-  message: string;
-  correctiveAction?: string;
-  standards?: string[];
-}
+export type { IssueModalTarget, TabData, ChatMessage };
 
-export interface TabData {
-  file: File | null;
-  pdfBlobUrl: string | null;
-  pdfText: string;
-  analysis: WorkspaceAnalysis | null;
-  chatMessages: ChatMessage[];
-}
-
-interface RemembranceContextType {
-  // Global / Legacy
-  file: File | null;
-  pdfBlobUrl: string | null;
-  pdfText: string;
-  analysis: WorkspaceAnalysis | null;
-  setTenderData: (f: File, a: WorkspaceAnalysis, url: string, text?: string) => void;
-  clearTenderData: () => void;
-  
-  // Tab-specific caching
-  tabs: Record<string, TabData>;
-  setTabData: (tabId: string, data: Partial<TabData>) => void;
-  clearTabData: (tabId: string) => void;
-
-  isPdfConnectedToAiChat: boolean;
-  setIsPdfConnectedToAiChat: (connected: boolean) => void;
-  chatMessages: ChatMessage[];
-  setChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
-  chatInput: string;
-  setChatInput: (s: string) => void;
-  chatMode: "fast" | "heavy";
-  setChatMode: (m: "fast" | "heavy") => void;
-  issueChats: Record<string, ChatMessage[]>;
-  updateIssueChat: (key: string, msgs: ChatMessage[]) => void;
-  activeIssueModal: IssueModalTarget | null;
-  setActiveIssueModal: (item: IssueModalTarget | null) => void;
-  gemSimItem: ExtractedLineItem | null;
-  setGemSimItem: (item: ExtractedLineItem | null) => void;
-  graphFocusTender: boolean;
-  setGraphFocusTender: (focus: boolean) => void;
-}
+const CHAT_STORAGE_KEY = "bis_specai_chat_history";
 
 const RemembranceContext = createContext<RemembranceContextType | undefined>(undefined);
 
@@ -59,13 +13,8 @@ export const RemembranceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [pdfText, setPdfText] = useState<string>("");
   const [analysis, setAnalysis] = useState<WorkspaceAnalysis | null>(null);
-  
   const [tabs, setTabs] = useState<Record<string, TabData>>({});
-
   const [isPdfConnectedToAiChat, setIsPdfConnectedToAiChat] = useState(true);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    { role: "assistant", text: "Welcome to **BIS Intelligence**. Ask me anything regarding BIS specifications, QCO orders, or GeM compliance." },
-  ]);
   const [chatInput, setChatInput] = useState("");
   const [chatMode, setChatMode] = useState<"fast" | "heavy">("fast");
   const [issueChats, setIssueChats] = useState<Record<string, ChatMessage[]>>({});
@@ -73,14 +22,32 @@ export const RemembranceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [gemSimItem, setGemSimItem] = useState<ExtractedLineItem | null>(null);
   const [graphFocusTender, setGraphFocusTender] = useState(true);
 
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem(CHAT_STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (err: unknown) { /* fallback */ }
+    }
+    return [{ role: "assistant", text: "Welcome to **BIS Intelligence**. Ask me anything regarding BIS specifications, QCO orders, or GeM compliance." }];
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chatMessages)); } catch (err: unknown) { /* ignore */ }
+  }, [chatMessages]);
+
   useEffect(() => () => { if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl); }, [pdfBlobUrl]);
 
   const setTenderData = (f: File, a: WorkspaceAnalysis, url: string, text?: string) => {
-    setFile(f);
-    setAnalysis(a);
-    setPdfBlobUrl(url);
-    if (text) setPdfText(text);
-    setIsPdfConnectedToAiChat(true);
+    setFile(f); setAnalysis(a); setPdfBlobUrl(url); if (text) setPdfText(text); setIsPdfConnectedToAiChat(true);
+    setTabs(prev => ({
+      ...prev,
+      tender: { file: f, pdfBlobUrl: url, pdfText: text || "", analysis: a, chatMessages: prev.tender?.chatMessages || [] },
+      workspace: { file: f, pdfBlobUrl: url, pdfText: text || "", analysis: a, chatMessages: prev.workspace?.chatMessages || [] },
+    }));
   };
 
   const clearTenderData = () => {
@@ -91,10 +58,7 @@ export const RemembranceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const setTabData = (tabId: string, data: Partial<TabData>) => {
     setTabs(prev => ({
       ...prev,
-      [tabId]: {
-        ...(prev[tabId] || { file: null, pdfBlobUrl: null, pdfText: "", analysis: null, chatMessages: [] }),
-        ...data
-      }
+      [tabId]: { ...(prev[tabId] || { file: null, pdfBlobUrl: null, pdfText: "", analysis: null, chatMessages: [] }), ...data },
     }));
   };
 
@@ -107,16 +71,13 @@ export const RemembranceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     });
   };
 
-  const updateIssueChat = (key: string, msgs: ChatMessage[]) => {
-    setIssueChats(prev => ({ ...prev, [key]: msgs }));
-  };
+  const updateIssueChat = (key: string, msgs: ChatMessage[]) => setIssueChats(prev => ({ ...prev, [key]: msgs }));
 
   return (
     <RemembranceContext.Provider
       value={{
         file, pdfBlobUrl, pdfText, analysis, setTenderData, clearTenderData,
-        tabs, setTabData, clearTabData,
-        isPdfConnectedToAiChat, setIsPdfConnectedToAiChat,
+        tabs, setTabData, clearTabData, isPdfConnectedToAiChat, setIsPdfConnectedToAiChat,
         chatMessages, setChatMessages, chatInput, setChatInput, chatMode, setChatMode,
         issueChats, updateIssueChat, activeIssueModal, setActiveIssueModal,
         gemSimItem, setGemSimItem, graphFocusTender, setGraphFocusTender,

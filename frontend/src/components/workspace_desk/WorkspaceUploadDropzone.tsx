@@ -29,10 +29,10 @@ export const WorkspaceUploadDropzone: React.FC<WorkspaceUploadDropzoneProps> = (
       onDragLeave={() => setIsDragOver(false)}
       onDrop={handleDrop}
       onClick={() => inputRef.current?.click()}
-      className={`h-48 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center p-6 text-center cursor-pointer transition-all duration-150 ${
+      className={`h-48 border-2 border-dashed rounded-lg flex flex-col items-center justify-center p-6 text-center cursor-pointer transition-all duration-150 ${
         isDragOver
-          ? "border-apple-blue bg-apple-blue/10 scale-[0.99]"
-          : "border-white/15 bg-white/[0.02] hover:border-white/30 hover:bg-white/[0.04]"
+          ? "border-gov-blue bg-blue-50/60 dark:bg-blue-950/30 scale-[0.99]"
+          : "border-gov-border dark:border-slate-700 bg-gov-offwhite dark:bg-[#0c1421] hover:border-gov-blue dark:hover:border-blue-500"
       }`}
       role="button"
       tabIndex={0}
@@ -47,13 +47,13 @@ export const WorkspaceUploadDropzone: React.FC<WorkspaceUploadDropzoneProps> = (
         className="hidden"
         aria-hidden="true"
       />
-      <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-apple-blue mb-3">
+      <div className="w-12 h-12 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 flex items-center justify-center text-gov-blue dark:text-blue-400 mb-3">
         {isDragOver ? <FileText className="w-6 h-6 animate-bounce" /> : <UploadCloud className="w-6 h-6" />}
       </div>
-      <p className="text-sm font-medium text-white mb-1">
-        Drag & drop tender document here, or <span className="text-apple-blue hover:underline">browse</span>
+      <p className="text-sm font-semibold text-gov-navy dark:text-white mb-1">
+        Drag & drop tender document here, or <span className="text-gov-blue dark:text-blue-400 hover:underline">browse</span>
       </p>
-      <p className="text-[11px] text-white/40 max-w-xs">
+      <p className="text-[11px] text-gov-text-secondary dark:text-gray-400 max-w-xs">
         Accepted labels: PDF, DOCX, TXT, Images (PNG, JPG)
       </p>
     </div>

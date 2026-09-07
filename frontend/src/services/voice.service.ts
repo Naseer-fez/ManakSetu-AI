@@ -1,4 +1,4 @@
-import type { VoiceChatMessage, VoiceChatResponse, VoiceStatusResponse } from "../types";
+import type { VoiceChatMessage, VoiceChatResponse, VoiceStatusResponse } from "@/types";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string) || (import.meta.env.VITE_API_BASE_URL as string) || "/api/v1";
 

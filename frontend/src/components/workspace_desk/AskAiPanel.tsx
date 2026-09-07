@@ -26,16 +26,16 @@ export const AskAiPanel: React.FC<AskAiPanelProps> = ({
   };
 
   return (
-    <section className="flex flex-col h-full min-h-0 apple-glass rounded-2xl border border-white/10 overflow-hidden">
+    <section className="flex flex-col h-full min-h-0 bg-white dark:bg-[#111927] rounded-lg border border-gov-border dark:border-slate-800 shadow-sm overflow-hidden">
       {/* AI Panel Header */}
-      <div className="px-4 py-3 border-b border-white/10 bg-white/[0.02] flex items-center justify-between shrink-0">
+      <div className="px-4 py-2.5 border-b border-gov-border dark:border-slate-800 bg-gov-offwhite dark:bg-slate-900/50 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-apple-blue" />
-          <h3 className="text-xs font-semibold text-white">Ask AI (Review Copilot)</h3>
+          <Sparkles className="w-4 h-4 text-gov-blue dark:text-blue-400" />
+          <h3 className="text-xs font-bold text-gov-navy dark:text-white">Review Copilot AI</h3>
         </div>
         <button
           onClick={onClearChat}
-          className="text-white/40 hover:text-white/80 transition-colors p-1 rounded-lg hover:bg-white/5"
+          className="text-gov-text-secondary hover:text-gov-red dark:text-gray-400 dark:hover:text-red-400 transition-colors p-1 rounded hover:bg-white dark:hover:bg-slate-800"
           title="Clear chat"
           aria-label="Clear chat messages"
         >
@@ -47,7 +47,7 @@ export const AskAiPanel: React.FC<AskAiPanelProps> = ({
       <AskAiMessageList messages={messages} />
 
       {/* Chat Input Bar */}
-      <div className="p-3 border-t border-white/10 bg-white/[0.02] shrink-0">
+      <div className="p-3 border-t border-gov-border dark:border-slate-800 bg-gov-offwhite dark:bg-slate-900/50 shrink-0">
         <div className="flex items-center gap-2">
           <input
             type="text"
@@ -55,13 +55,13 @@ export const AskAiPanel: React.FC<AskAiPanelProps> = ({
             onChange={(e) => setInputPrompt(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Ask about a finding or request rewriting a clause..."
-            className="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-white/40 focus:outline-none focus:border-apple-blue transition-colors"
+            className="flex-1 bg-white dark:bg-[#0c1626] border border-gov-border dark:border-slate-700 rounded-lg px-3 py-2 text-xs text-gov-text dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-gov-blue transition-colors"
             aria-label="AI message input"
           />
           <button
             onClick={onSendMessage}
             disabled={!inputPrompt.trim()}
-            className="px-3 py-2 rounded-xl bg-apple-blue hover:bg-apple-blue/90 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center transition-colors"
+            className="px-3.5 py-2 rounded-lg bg-gov-blue hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center transition-colors shadow-sm"
             aria-label="Send message to AI copilot"
           >
             <Send className="w-3.5 h-3.5" />

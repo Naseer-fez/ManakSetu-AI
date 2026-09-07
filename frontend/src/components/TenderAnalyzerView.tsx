@@ -1,5 +1,5 @@
 import React from "react";
-import { WorkspaceView } from "./WorkspaceView";
+import { WorkspaceView } from "@/components/WorkspaceView";
 
 import { FileCheck } from "lucide-react";
 

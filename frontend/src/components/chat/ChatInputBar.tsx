@@ -1,7 +1,7 @@
 import React, { useRef } from "react";
 import { Send, Paperclip, X, FileText } from "lucide-react";
 
-interface ChatInputBarProps {
+export interface ChatInputBarProps {
   input: string;
   setInput: (value: string) => void;
   onSend: () => void;
@@ -29,23 +29,24 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   };
 
   return (
-    <footer className="p-4 border-t border-white/10 bg-white/5 backdrop-blur-md space-y-2">
+    <div className="space-y-2 select-none">
       {attachedFile && (
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-apple-indigo/20 border border-apple-indigo/40 w-fit text-xs text-white">
-          <FileText className="w-3.5 h-3.5 text-apple-indigo" />
-          <span className="font-medium max-w-[220px] truncate">{attachedFile.name}</span>
-          <span className="text-[10px] text-white/50">({Math.round(attachedFile.size / 1024)} KB)</span>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 w-fit text-xs text-gov-navy dark:text-blue-300">
+          <FileText className="w-3.5 h-3.5 text-gov-blue" />
+          <span className="font-semibold max-w-[220px] truncate">{attachedFile.name}</span>
+          <span className="text-[10px] text-gov-text-secondary dark:text-gray-400">({Math.round(attachedFile.size / 1024)} KB)</span>
           <button
             type="button"
             onClick={() => onAttachFile?.(null)}
-            className="p-0.5 hover:text-apple-red transition-colors ml-1"
+            className="p-0.5 hover:text-gov-red transition-colors ml-1"
             title="Remove attachment"
           >
             <X className="w-3 h-3" />
           </button>
         </div>
       )}
-      <div className="flex items-center gap-2 sm:gap-3 bg-black/40 border border-white/10 rounded-2xl px-3 sm:px-4 py-2 focus-within:border-apple-indigo/60 transition-all shadow-inner">
+
+      <div className="flex items-center gap-2 bg-gov-offwhite dark:bg-slate-800/80 border border-gov-border dark:border-slate-700 rounded-lg px-3 py-1.5 focus-within:ring-2 focus-within:ring-gov-blue transition-all">
         <input
           type="file"
           ref={fileInputRef}
@@ -56,34 +57,36 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="p-1.5 rounded-xl text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-          title="Attach PDF or Markdown (.md) document"
+          className="p-1.5 rounded text-gov-text-secondary hover:text-gov-navy dark:text-gray-400 dark:hover:text-white transition-colors"
+          title="Attach PDF or specification text"
         >
           <Paperclip className="w-4 h-4" />
         </button>
         <input
           value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && !e.shiftKey && onSend()}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && onSend()}
           placeholder={
             attachedFile
-              ? `Ask inquiry about ${attachedFile.name}...`
+              ? `Ask question regarding ${attachedFile.name}...`
               : mode === "fast"
-              ? "Ask quick standards inquiry (e.g. 'Is IS 1786 mandatory under QCO?')..."
-              : "Ask deep reasoning inquiry with normative citations and compliance checks..."
+              ? "Ask an advisory query (e.g. 'Is IS 1786 mandatory under QCO?')..."
+              : "Ask a deep analytical query with normative standard dependencies..."
           }
-          className="flex-1 bg-transparent text-sm text-white placeholder-white/35 focus:outline-none"
+          className="flex-1 bg-transparent text-xs text-gov-text dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none"
         />
         <button
           onClick={onSend}
           disabled={loading || (!input.trim() && !attachedFile)}
           type="button"
-          className="px-4 py-2 rounded-xl bg-apple-blue hover:bg-apple-blue/80 disabled:opacity-40 text-white font-semibold text-xs transition-all shadow-md shadow-apple-blue/20 flex items-center gap-1.5"
+          className="px-3.5 py-1.5 rounded bg-gov-blue hover:bg-blue-700 disabled:opacity-40 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-sm"
         >
           <span>Send</span>
           <Send className="w-3.5 h-3.5" />
         </button>
       </div>
-    </footer>
+    </div>
   );
 };
+
+export default ChatInputBar;

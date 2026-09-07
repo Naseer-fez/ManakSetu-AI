@@ -22,7 +22,7 @@ export const GraphInspectorHeader: React.FC<GraphInspectorHeaderProps> = ({
         <div className="flex items-center gap-2 flex-wrap">
           <h3
             className={clsx(
-              "font-bold text-white tracking-tight transition-all",
+              "font-bold text-gov-navy dark:text-white tracking-tight transition-all",
               isZoomedIn ? "text-xl md:text-2xl" : "text-base md:text-lg"
             )}
           >
@@ -31,7 +31,7 @@ export const GraphInspectorHeader: React.FC<GraphInspectorHeaderProps> = ({
           {selectedNode.is_mandatory ? (
             <span
               className={clsx(
-                "inline-flex items-center font-bold bg-apple-red/20 text-apple-red border border-apple-red/30 rounded-full transition-all",
+                "inline-flex items-center font-bold bg-red-100 dark:bg-red-950/60 text-gov-red dark:text-red-400 border border-red-200 dark:border-red-900 rounded-full transition-all",
                 isZoomedIn ? "text-xs px-3 py-1 gap-1.5" : "text-[10px] px-2.5 py-0.5 gap-1"
               )}
             >
@@ -41,7 +41,7 @@ export const GraphInspectorHeader: React.FC<GraphInspectorHeaderProps> = ({
           ) : (
             <span
               className={clsx(
-                "inline-flex items-center font-bold bg-apple-mint/20 text-apple-mint border border-apple-mint/30 rounded-full transition-all",
+                "inline-flex items-center font-bold bg-emerald-100 dark:bg-emerald-950/60 text-gov-green dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900 rounded-full transition-all",
                 isZoomedIn ? "text-xs px-3 py-1 gap-1.5" : "text-[10px] px-2.5 py-0.5 gap-1"
               )}
             >
@@ -52,7 +52,7 @@ export const GraphInspectorHeader: React.FC<GraphInspectorHeaderProps> = ({
         </div>
         <p
           className={clsx(
-            "text-white/70 leading-relaxed line-clamp-3 transition-all",
+            "text-gov-text-secondary dark:text-gray-300 leading-relaxed line-clamp-3 transition-all",
             isZoomedIn ? "text-sm" : "text-xs"
           )}
         >
@@ -64,7 +64,7 @@ export const GraphInspectorHeader: React.FC<GraphInspectorHeaderProps> = ({
         onClick={onClose}
         type="button"
         className={clsx(
-          "rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors shrink-0",
+          "rounded-full text-gov-text-secondary dark:text-white/50 hover:text-gov-navy dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors shrink-0",
           isZoomedIn ? "p-2" : "p-1.5"
         )}
         title="Close details card"

@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { analyzeWorkspace, askWorkspace, createWorkspace, exportWorkspace } from "../../services/api.service";
-import { useRemembrance } from "../../context/RemembranceContext";
-import type { WorkspaceAnalysis } from "../../types";
-import type { ChatMessage } from "../ChatMessageItem";
+import { analyzeWorkspace, askWorkspace, createWorkspace, exportWorkspace } from "@/services/api.service";
+import { useRemembrance } from "@/context/RemembranceContext";
+import type { WorkspaceAnalysis } from "@/types";
+import type { ChatMessage } from "@/components/ChatMessageItem";
 
 export function useWorkspace(tabId: string, onPdfTextLoaded?: (t: string) => void) {
   const rem = useRemembrance();
@@ -14,25 +14,18 @@ export function useWorkspace(tabId: string, onPdfTextLoaded?: (t: string) => voi
   const [aiLoading, setAiLoading] = useState(false);
 
   const tabData = rem.tabs[tabId] || {
-    file: null,
-    pdfBlobUrl: null,
-    pdfText: "",
-    analysis: null,
-    chatMessages: []
+    file: null, pdfBlobUrl: null, pdfText: "", analysis: null, chatMessages: []
   };
 
   const setFile = (f: File | null) => rem.setTabData(tabId, { file: f });
   const setPdfBlobUrl = (url: string | null) => rem.setTabData(tabId, { pdfBlobUrl: url });
   const setAnalysis = (a: WorkspaceAnalysis | null) => rem.setTabData(tabId, { analysis: a });
   const setAiMessages = (action: React.SetStateAction<ChatMessage[]>) => {
-    const nextMessages = typeof action === 'function' ? action(tabData.chatMessages) : action;
+    const nextMessages = typeof action === "function" ? action(tabData.chatMessages) : action;
     rem.setTabData(tabId, { chatMessages: nextMessages });
   };
 
-  const file = tabData.file;
-  const pdfBlobUrl = tabData.pdfBlobUrl;
-  const analysis = tabData.analysis;
-  const aiMessages = tabData.chatMessages;
+  const { file, pdfBlobUrl, analysis, chatMessages: aiMessages } = tabData;
 
   const ensureWorkspace = async (): Promise<string> => {
     if (workspaceId) return workspaceId;
@@ -42,7 +35,7 @@ export function useWorkspace(tabId: string, onPdfTextLoaded?: (t: string) => voi
   };
 
   const handleFileSelected = async (f: File) => {
-    setBusy(true); 
+    setBusy(true);
     setFile(f);
     if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
     const newUrl = URL.createObjectURL(f);
@@ -52,13 +45,13 @@ export function useWorkspace(tabId: string, onPdfTextLoaded?: (t: string) => voi
       const res = await analyzeWorkspace(wsId, f);
       setAnalysis(res);
       const rawText = res.report?.raw_text || "";
-      rem.setTenderData(f, res, newUrl, rawText); // sync globally for other legacy uses if needed
+      rem.setTenderData(f, res, newUrl, rawText);
       if (rawText && onPdfTextLoaded) onPdfTextLoaded(rawText);
       setAiMessages([{ role: "assistant", text: `Grounded in **${f.name}**.\n- Coverage: **${res.compliance_run.coverage}%**\n- Findings: **${res.compliance_run.findings.length}** issues.\n\nAsk me anything about this tender.` }]);
-    } catch { 
-      setAnalysis(null); 
-    } finally { 
-      setBusy(false); 
+    } catch (err: unknown) {
+      setAnalysis(null);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -81,7 +74,7 @@ export function useWorkspace(tabId: string, onPdfTextLoaded?: (t: string) => voi
       const wsId = await ensureWorkspace();
       const res = await askWorkspace(wsId, q, analysis?.report?.raw_text);
       setAiMessages(p => [...p.slice(0, -1), { role: "assistant", text: res.answer }]);
-    } catch {
+    } catch (err: unknown) {
       setAiMessages(p => [...p.slice(0, -1), { role: "assistant", text: "AI Assistant could not respond to this query." }]);
     } finally { setAiLoading(false); }
   };

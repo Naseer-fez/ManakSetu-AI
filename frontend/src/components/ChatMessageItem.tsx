@@ -26,20 +26,20 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
   return (
     <div className={clsx("flex w-full gap-2.5 items-start", isUser ? "justify-end" : "justify-start")}>
       {!isUser && (
-        <div className="w-7 h-7 rounded-xl bg-apple-indigo/20 border border-apple-indigo/30 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-          <Sparkles className="w-3.5 h-3.5 text-apple-indigo" />
+        <div className="w-7 h-7 rounded bg-gov-navy dark:bg-slate-800 border border-transparent dark:border-slate-700 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+          <Sparkles className="w-3.5 h-3.5 text-gov-saffron" />
         </div>
       )}
       <div
         className={clsx(
-          "max-w-[88%] rounded-2xl px-4 py-3 text-sm transition-all",
+          "max-w-[88%] rounded-lg px-4 py-3 text-xs leading-relaxed transition-all",
           isUser
-            ? "bg-apple-blue text-white rounded-br-sm shadow-md shadow-apple-blue/20"
-            : "apple-glass-dark border border-white/10 text-white/90 rounded-bl-sm shadow-lg leading-relaxed backdrop-blur-xl"
+            ? "bg-gov-blue text-white shadow-sm"
+            : "bg-white dark:bg-slate-800/95 border border-gov-border dark:border-slate-700 text-gov-text dark:text-gray-100 shadow-sm"
         )}
       >
         {isUser ? (
-          <p className="whitespace-pre-wrap leading-relaxed">{message.text}</p>
+          <p className="whitespace-pre-wrap leading-relaxed font-normal">{message.text}</p>
         ) : (
           <div>
             <MarkdownRenderer
@@ -48,14 +48,14 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
               onFileClick={onFileClick}
             />
             {loading && (
-              <span className="inline-block w-2 h-4 ml-1 bg-apple-indigo animate-pulse align-middle rounded-sm" />
+              <span className="inline-block w-1.5 h-3.5 ml-1 bg-gov-blue animate-pulse align-middle rounded-sm" />
             )}
           </div>
         )}
       </div>
       {isUser && (
-        <div className="w-7 h-7 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center shrink-0 mt-0.5">
-          <User className="w-3.5 h-3.5 text-white/70" />
+        <div className="w-7 h-7 rounded bg-gov-blue-light dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 flex items-center justify-center shrink-0 mt-0.5">
+          <User className="w-3.5 h-3.5 text-gov-blue dark:text-blue-400" />
         </div>
       )}
     </div>

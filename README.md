@@ -97,13 +97,24 @@ Open `http://localhost:5173` in your browser.
 | `POST` | `/api/v1/analyze-tender` | Multi-format tender document audit (PDF/DOCX/Text) |
 | `POST` | `/api/v1/workspaces` | Create a local tender workspace |
 | `POST` | `/api/v1/workspaces/{id}/analyze` | Upload and audit a document, then create a review revision |
+| `POST` | `/api/v1/workspaces/{id}/extract` | Extract uploaded PDF structure into TipTap-compatible HTML |
 | `POST` | `/api/v1/workspaces/{id}/chat` | Grounded interactive procurement chat |
 | `POST` | `/api/v1/workspaces/{id}/chat-stream` | SSE-streamed grounded chat |
 | `POST` | `/api/v1/workspaces/{id}/templates` | Register a reviewed DOCX/PDF template profile |
 | `POST` | `/api/v1/workspaces/{id}/export` | Draft or approval-gated DOCX/PDF export |
+| `POST` | `/api/v1/workspaces/{id}/export-pdf` | Regenerate a PDF from edited workspace HTML |
 | `GET` | `/api/v1/standards` | Search and filter Indian Standards database |
 | `GET` | `/api/v1/standards/{is_code}` | Detailed standard metadata and allied relations |
 | `GET` | `/api/v1/graph` | Multi-relational knowledge graph data |
 | `GET` | `/api/v1/qco-list` | Active Quality Control Orders registry |
 | `POST` | `/api/v1/gem-webhook` | GeM portal real-time bid validation simulator |
 | `GET` | `/api/v1/health` | Service health status |
+
+### Workspace PDF regeneration on Windows
+
+The editor export uses WeasyPrint. Its Python package also requires the native
+Pango/GLib runtime libraries (`libgobject-2.0-0`, `libpango-1.0-0`, and their
+transitive dependencies) to be available on `PATH`. Install the GTK3 runtime
+for the target Python architecture before starting FastAPI; otherwise the
+export endpoint returns `503` with a dependency error instead of silently
+producing an incomplete PDF.

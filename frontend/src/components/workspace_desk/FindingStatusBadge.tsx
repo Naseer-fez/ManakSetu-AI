@@ -13,19 +13,19 @@ export const FindingStatusBadge: React.FC<FindingStatusBadgeProps> = ({ status, 
 
   const config = {
     critical: {
-      color: "bg-apple-red/15 text-apple-red border-apple-red/30",
+      color: "bg-red-50 dark:bg-red-950/40 text-gov-red dark:text-rose-400 border-red-200 dark:border-red-900/50",
       icon: AlertOctagon,
     },
     warning: {
-      color: "bg-apple-amber/15 text-apple-amber border-apple-amber/30",
+      color: "bg-amber-50 dark:bg-amber-950/40 text-gov-amber dark:text-amber-400 border-amber-200 dark:border-amber-900/50",
       icon: AlertTriangle,
     },
     passed: {
-      color: "bg-apple-mint/15 text-apple-mint border-apple-mint/30",
+      color: "bg-emerald-50 dark:bg-emerald-950/40 text-gov-green dark:text-emerald-400 border-emerald-200 dark:border-emerald-800",
       icon: CheckCircle2,
     },
     needs_verification: {
-      color: "bg-apple-indigo/15 text-indigo-300 border-apple-indigo/30",
+      color: "bg-blue-50 dark:bg-blue-950/40 text-gov-blue dark:text-blue-400 border-blue-200 dark:border-blue-900/50",
       icon: HelpCircle,
     },
   }[status];

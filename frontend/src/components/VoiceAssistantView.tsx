@@ -1,27 +1,26 @@
 import React, { useEffect, useRef, useState } from "react";
-import { VoiceControlsToolbar } from "./VoiceControlsToolbar";
-import { VoiceChatThread } from "./VoiceChatThread";
-import { PushToTalkButton } from "./PushToTalkButton";
-import { fetchVoiceStatus, sendVoiceChat } from "../services/voice.service";
-import type { VoiceChatMessage, VoiceStatusResponse } from "../types";
+import { VoiceControlsToolbar } from "@/components/VoiceControlsToolbar";
+import { VoiceChatThread } from "@/components/VoiceChatThread";
+import { PushToTalkButton } from "@/components/PushToTalkButton";
+import { fetchVoiceStatus, sendVoiceChat } from "@/services/voice.service";
+import type { VoiceChatMessage, VoiceStatusResponse } from "@/types";
 
 export const VoiceAssistantView: React.FC = () => {
   const [messages, setMessages] = useState<VoiceChatMessage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [mode, setMode] = useState<"fast" | "thinking">("thinking");
   const [language, setLanguage] = useState<string>("auto");
   const [status, setStatus] = useState<VoiceStatusResponse | null>(null);
   const activeAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    fetchVoiceStatus().then(setStatus).catch(() => setStatus(null));
+    fetchVoiceStatus().then(setStatus).catch((_err: unknown) => setStatus(null));
   }, []);
 
   const handleAudioReady = async (blob: Blob) => {
     setIsProcessing(true);
     const tempId = Date.now().toString();
     try {
-      const resp = await sendVoiceChat(blob, messages, mode, language);
+      const resp = await sendVoiceChat(blob, messages, "thinking", language);
       const userMsg: VoiceChatMessage = {
         id: `user-${tempId}`,
         role: "user",
@@ -45,12 +44,12 @@ export const VoiceAssistantView: React.FC = () => {
         }
         const audio = new Audio(resp.audio_url);
         activeAudioRef.current = audio;
-        audio.play().catch(() => {});
+        audio.play().catch((_err: unknown) => {});
         audio.onended = () => {
           if (activeAudioRef.current === audio) activeAudioRef.current = null;
         };
       }
-    } catch {
+    } catch (err: unknown) {
       const errorMsg: VoiceChatMessage = {
         id: `err-${tempId}`,
         role: "assistant",
@@ -66,17 +65,15 @@ export const VoiceAssistantView: React.FC = () => {
   return (
     <div className="flex flex-col h-full max-w-4xl mx-auto space-y-4">
       <VoiceControlsToolbar
-        mode={mode}
-        setMode={setMode}
         language={language}
         setLanguage={setLanguage}
         status={status}
         onClear={() => setMessages([])}
         hasMessages={messages.length > 0}
       />
-      <div className="apple-glass rounded-3xl border border-white/10 flex flex-col shadow-2xl overflow-hidden">
+      <div className="bg-white dark:bg-[#111927] rounded-lg border border-gov-border dark:border-slate-800 flex flex-col shadow-sm overflow-hidden">
         <VoiceChatThread messages={messages} isProcessing={isProcessing} />
-        <div className="border-t border-white/10 bg-slate-900/40 p-2">
+        <div className="border-t border-gov-border dark:border-slate-800 bg-gov-offwhite dark:bg-slate-900/60 p-3">
           <PushToTalkButton onAudioReady={handleAudioReady} isProcessing={isProcessing} />
         </div>
       </div>

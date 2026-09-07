@@ -1,9 +1,9 @@
 import React from "react";
-import { UnifiedAuditMetrics } from "./UnifiedAuditMetrics";
-import { UnifiedItemsList } from "./UnifiedItemsList";
-import { UnifiedFindingsList } from "./UnifiedFindingsList";
-import { TenderGemQcoSection } from "./TenderGemQcoSection";
-import type { WorkspaceAnalysis } from "../../types";
+import { UnifiedAuditMetrics } from "@/components/workspace/UnifiedAuditMetrics";
+import { UnifiedItemsList } from "@/components/workspace/UnifiedItemsList";
+import { UnifiedFindingsList } from "@/components/workspace/UnifiedFindingsList";
+import { TenderGemQcoSection } from "@/components/workspace/TenderGemQcoSection";
+import type { WorkspaceAnalysis } from "@/types";
 
 interface UnifiedAuditMatrixProps {
   analysis: WorkspaceAnalysis;

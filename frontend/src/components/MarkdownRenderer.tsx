@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { marked, type TokensList } from "marked";
 import { clsx } from "clsx";
-import { MarkdownBlock } from "./markdown/MarkdownBlock";
+import { MarkdownBlock } from "@/components/markdown/MarkdownBlock";
 
 interface MarkdownRendererProps {
   content: string;
@@ -25,7 +25,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     if (!content) return null;
     try {
       return marked.lexer(content);
-    } catch {
+    } catch (err: unknown) {
       return null;
     }
   }, [content]);
@@ -33,11 +33,11 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   if (!content) return null;
 
   if (!tokens) {
-    return <div className={clsx("text-white/80 text-sm whitespace-pre-wrap", className)}>{content}</div>;
+    return <div className={clsx("text-gov-text dark:text-gray-200 text-sm whitespace-pre-wrap", className)}>{content}</div>;
   }
 
   return (
-    <div className={clsx("markdown-body text-slate-100 space-y-1 text-sm leading-relaxed", className)}>
+    <div className={clsx("markdown-body text-gov-text dark:text-gray-200 space-y-1 text-sm leading-relaxed", className)}>
       {tokens.map((token, index) => (
         <MarkdownBlock
           key={index}

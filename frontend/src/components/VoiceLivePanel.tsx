@@ -1,7 +1,7 @@
 import React from "react";
-import { useLiveVoice } from "./useLiveVoice";
-import { LiveTranscript } from "./LiveTranscript";
-import { MicVisualizer } from "./MicVisualizer";
+import { useLiveVoice } from "@/components/useLiveVoice";
+import { LiveTranscript } from "@/components/LiveTranscript";
+import { MicVisualizer } from "@/components/MicVisualizer";
 
 const WS_URL = `${import.meta.env.VITE_WS_URL || (typeof window !== "undefined" ? (window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host : "ws://127.0.0.1:8000")}/api/v1/voice/live`;
 
@@ -10,12 +10,12 @@ export const VoiceLivePanel: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full max-w-4xl mx-auto space-y-4">
-      <div className="apple-glass rounded-3xl border border-white/10 flex flex-col shadow-2xl p-6">
+      <div className="bg-white dark:bg-[#111927] rounded-lg border border-gov-border dark:border-slate-800 flex flex-col shadow-sm p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-white">🎙️ Live Voice Assistant</h2>
+          <h2 className="text-base font-bold text-gov-navy dark:text-white">🎙️ Live Voice Assistant</h2>
           <button onClick={voice.isConnected ? voice.disconnect : voice.connect}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              voice.isConnected ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" : "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30"
+            className={`px-3.5 py-1.5 rounded text-xs font-semibold transition-colors ${
+              voice.isConnected ? "bg-red-50 dark:bg-red-950/40 text-gov-red border border-red-200 dark:border-red-900" : "bg-blue-50 dark:bg-blue-950/40 text-gov-blue border border-blue-200 dark:border-blue-900"
             }`}>
             {voice.isConnected ? "Disconnect" : "Connect"}
           </button>
@@ -33,17 +33,17 @@ export const VoiceLivePanel: React.FC = () => {
         />
 
         {voice.error && (
-          <div className="text-red-400 text-sm mt-4 p-3 bg-red-900/20 rounded-lg border border-red-500/20">
+          <div className="text-gov-red dark:text-red-400 text-xs mt-4 p-3 bg-red-50 dark:bg-red-950/40 rounded border border-red-200 dark:border-red-900">
             {voice.error}
           </div>
         )}
 
         <div className="flex gap-3 mt-6">
           <button onClick={voice.toggleListening} disabled={!voice.isConnected}
-            className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all shadow-md ${
-              !voice.isConnected ? "bg-slate-800 text-slate-500 cursor-not-allowed" 
-              : voice.isListening ? "bg-red-600 hover:bg-red-500 text-white" 
-              : "bg-blue-600 hover:bg-blue-500 text-white"
+            className={`flex-1 px-4 py-2.5 rounded font-semibold text-xs transition-all shadow-sm ${
+              !voice.isConnected ? "bg-gray-100 dark:bg-slate-800 text-gov-text-secondary dark:text-gray-500 cursor-not-allowed border border-gov-border dark:border-slate-700" 
+              : voice.isListening ? "bg-gov-red hover:bg-red-700 text-white" 
+              : "bg-gov-blue hover:bg-blue-700 text-white"
             }`}>
             {voice.isListening ? "⏹ Stop Listening" : "🎤 Start Listening"}
           </button>

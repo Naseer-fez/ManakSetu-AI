@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { UnifiedAuditHeader } from "./UnifiedAuditHeader";
-import { UnifiedAuditMatrix } from "./UnifiedAuditMatrix";
-import { WorkspacePdfContent } from "./WorkspacePdfContent";
-import type { WorkspaceAnalysis } from "../../types";
+import { UnifiedAuditHeader } from "@/components/workspace/UnifiedAuditHeader";
+import { UnifiedAuditMatrix } from "@/components/workspace/UnifiedAuditMatrix";
+import { WorkspacePdfContent } from "@/components/workspace/WorkspacePdfContent";
+import type { WorkspaceAnalysis } from "@/types";
 
 interface UnifiedAuditWorkspaceProps {
   viewMode?: "audit" | "pdf" | "both";
@@ -32,7 +32,7 @@ export const UnifiedAuditWorkspace: React.FC<UnifiedAuditWorkspaceProps> = ({
   const currentView = viewMode === "both" ? activeView : viewMode;
 
   return (
-    <section className="flex flex-col h-full min-h-0 apple-glass rounded-3xl border border-white/10 shadow-2xl overflow-hidden">
+    <section className="flex flex-col h-full min-h-0 bg-white dark:bg-[#111927] rounded-lg border border-gov-border dark:border-slate-800 shadow-sm overflow-hidden">
       <UnifiedAuditHeader
         viewMode={viewMode}
         fileName={file.name}

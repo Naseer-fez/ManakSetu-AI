@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { VoiceAssistantView } from "./VoiceAssistantView";
-import { VoiceLivePanel } from "./VoiceLivePanel";
-import { SpeakToAiSidebar } from "./voice/SpeakToAiSidebar";
+import { VoiceAssistantView } from "@/components/VoiceAssistantView";
+import { VoiceLivePanel } from "@/components/VoiceLivePanel";
+import { SpeakToAiSidebar } from "@/components/voice/SpeakToAiSidebar";
 import { motion, AnimatePresence } from "framer-motion";
 
 export const SpeakToAiView: React.FC = () => {

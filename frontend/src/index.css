@@ -2,26 +2,79 @@
 @tailwind components;
 @tailwind utilities;
 
+:root,
+[data-theme="light"] {
+  --gov-navy: #0C2340;
+  --gov-blue: #1A56DB;
+  --gov-blue-light: #E8F0FE;
+  --gov-saffron: #FF9933;
+  --gov-green: #138808;
+  --gov-white: #FFFFFF;
+  --gov-offwhite: #F4F6F9;
+  --gov-red: #DC2626;
+  --gov-amber: #D97706;
+  --gov-text: #1F2937;
+  --gov-text-secondary: #6B7280;
+  --gov-border: #D1D5DB;
+}
+
+.dark,
+[data-theme="dark"] {
+  --gov-navy: #0C1E34;
+  --gov-blue: #2563EB;
+  --gov-blue-light: #1E293B;
+  --gov-saffron: #F59E0B;
+  --gov-green: #10B981;
+  --gov-white: #111927;
+  --gov-offwhite: #0A0F18;
+  --gov-red: #EF4444;
+  --gov-amber: #F59E0B;
+  --gov-text: #F3F4F6;
+  --gov-text-secondary: #9CA3AF;
+  --gov-border: #263445;
+}
+
 body {
   margin: 0;
-  background-color: #08090a;
-  background-image: radial-gradient(circle at top, rgba(94, 92, 230, 0.1) 0%, rgba(8, 9, 10, 1) 50%);
-  background-attachment: fixed;
-  color: #f1f5f9;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, sans-serif;
+  background-color: var(--gov-offwhite);
+  color: var(--gov-text);
+  font-family: "Inter", "Noto Sans", system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+code, kbd, samp, pre {
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+}
+
 @layer utilities {
-  .apple-glass {
-    @apply bg-white/[0.04] backdrop-blur-2xl border border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.4)];
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 8px 32px rgba(0, 0, 0, 0.4);
+  .gov-card {
+    background-color: var(--gov-white);
+    border: 1px solid var(--gov-border);
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   }
+
+  .gov-badge {
+    border-radius: 9999px;
+    padding: 2px 10px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  /* Shims for components */
+  .apple-glass,
   .apple-glass-dark {
-    @apply bg-black/40 backdrop-blur-2xl border border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.4)];
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 8px 32px rgba(0, 0, 0, 0.4);
+    background-color: var(--gov-white);
+    border: 1px solid var(--gov-border);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   }
+}
+
+/* Form control styling defaults */
+.dark select option {
+  background-color: #111927;
+  color: #f3f4f6;
 }
 
 ::-webkit-scrollbar {
@@ -30,14 +83,23 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: var(--gov-offwhite);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: #9CA3AF;
   border-radius: 4px;
 }
 
-::-webkit-scrollbar-thumb:hover {
+.dark ::-webkit-scrollbar-thumb {
   background: #475569;
 }
+
+::-webkit-scrollbar-thumb:hover {
+  background: #6B7280;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+

@@ -21,28 +21,28 @@ Section 4.1, Clause 4.1.8: Mandatory sampling and verification shall be performe
 Section 7.0, Clause 7.1.2: Packaging and identification bundles shall carry batch numbers and manufacturer mark.`;
 
   return (
-    <div className="max-w-2xl mx-auto w-full apple-glass rounded-3xl border border-white/10 p-6 space-y-5">
+    <div className="max-w-2xl mx-auto w-full bg-white dark:bg-[#111927] rounded-lg border border-gov-border dark:border-slate-700 p-6 space-y-5 shadow-sm">
       {/* Mode Selector */}
-      <div className="flex items-center gap-2 border-b border-white/10 pb-3">
+      <div className="flex items-center gap-2 border-b border-gov-border dark:border-slate-700 pb-3">
         <button
           onClick={() => setMode("upload")}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded text-xs font-semibold transition-all ${
             mode === "upload"
-              ? "bg-apple-blue text-white shadow-sm"
-              : "text-white/60 hover:text-white hover:bg-white/5"
+              ? "bg-gov-blue text-white shadow-sm"
+              : "text-gov-text-secondary dark:text-gray-400 hover:text-gov-navy dark:hover:text-white hover:bg-gov-offwhite dark:hover:bg-slate-800"
           }`}
         >
-          <Upload className="w-3.5 h-3.5" /> Upload Document
+          <Upload className="w-3.5 h-3.5" /> Upload Document (.pdf, .docx, .txt)
         </button>
         <button
           onClick={() => setMode("paste")}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded text-xs font-semibold transition-all ${
             mode === "paste"
-              ? "bg-apple-blue text-white shadow-sm"
-              : "text-white/60 hover:text-white hover:bg-white/5"
+              ? "bg-gov-blue text-white shadow-sm"
+              : "text-gov-text-secondary dark:text-gray-400 hover:text-gov-navy dark:hover:text-white hover:bg-gov-offwhite dark:hover:bg-slate-800"
           }`}
         >
-          <FileText className="w-3.5 h-3.5" /> Paste Text
+          <FileText className="w-3.5 h-3.5" /> Paste Specification Clauses
         </button>
       </div>
 
@@ -57,17 +57,17 @@ Section 7.0, Clause 7.1.2: Packaging and identification bundles shall carry batc
         />
       )}
 
-      {/* Run Audit Button (Disabled until text entered if paste mode) */}
-      <div className="flex items-center justify-between pt-2">
-        <span className="text-[11px] text-white/40">
-          Upload a tender document or paste clauses to activate audit.
+      {/* Run Audit Button */}
+      <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-slate-800">
+        <span className="text-xs text-gov-text-secondary dark:text-gray-400">
+          Upload a tender document or paste technical clauses to initiate statutory compliance audit.
         </span>
         <button
           onClick={() => mode === "paste" && pastedText.trim() && onTextSubmit(pastedText)}
           disabled={mode === "upload" || !pastedText.trim()}
-          className="px-5 py-2.5 rounded-xl bg-apple-blue hover:bg-apple-blue/90 disabled:opacity-30 disabled:cursor-not-allowed text-white font-medium text-xs flex items-center gap-2 shadow-lg transition-all"
+          className="px-4 py-2 rounded bg-gov-blue hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-xs flex items-center gap-2 shadow-sm transition-all"
         >
-          <Play className="w-4 h-4 fill-white" />
+          <Play className="w-3.5 h-3.5 fill-white" />
           <span>Run Audit</span>
         </button>
       </div>

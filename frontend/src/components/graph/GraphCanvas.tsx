@@ -1,7 +1,7 @@
 import React from "react";
-import type { PositionedNode, GraphEdgeData, NetworkFocusState } from "./types";
-import { GraphNode } from "./GraphNode";
-import { GraphEdgesLayer } from "./GraphEdgesLayer";
+import type { PositionedNode, GraphEdgeData, NetworkFocusState } from "@/components/graph/types";
+import { GraphNode } from "@/components/graph/GraphNode";
+import { GraphEdgesLayer } from "@/components/graph/GraphEdgesLayer";
 
 interface GraphCanvasProps {
   nodes: PositionedNode[];

@@ -1,8 +1,8 @@
 import React from "react";
-import { FileText, Link2Off, RefreshCw, ArrowDownToDot } from "lucide-react";
-import { useRemembrance } from "../../context/RemembranceContext";
+import { FileText, Link2Off, ArrowDownToDot, CheckCircle2 } from "lucide-react";
+import { useRemembrance } from "@/context/RemembranceContext";
 
-interface ChatPdfContextBannerProps {
+export interface ChatPdfContextBannerProps {
   onTransferFindings?: () => void;
 }
 
@@ -12,17 +12,26 @@ export const ChatPdfContextBanner: React.FC<ChatPdfContextBannerProps> = ({ onTr
   if (!file) return null;
 
   return (
-    <div className="mx-6 mt-4 p-3 rounded-2xl bg-white/[0.04] border border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
+    <div className="mx-5 mt-3 p-3 rounded-lg bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 flex flex-wrap items-center justify-between gap-3 text-xs select-none">
       <div className="flex items-center gap-2.5">
-        <div className={`p-1.5 rounded-lg ${isPdfConnectedToAiChat ? "bg-apple-blue/20 text-apple-blue" : "bg-white/10 text-white/40"}`}>
+        <div className={`p-2 rounded ${isPdfConnectedToAiChat ? "bg-gov-blue text-white" : "bg-gray-200 text-gray-500"}`}>
           <FileText className="w-4 h-4" />
         </div>
         <div>
-          <span className="font-semibold text-white/90 truncate block max-w-xs sm:max-w-md">
-            {file.name}
-          </span>
-          <span className="text-[11px] text-white/50">
-            {isPdfConnectedToAiChat ? "PDF context actively linked to AI queries" : "PDF disconnected (generic standard mode)"}
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-gov-navy dark:text-white truncate max-w-xs sm:max-w-md">
+              {file.name}
+            </span>
+            {isPdfConnectedToAiChat && (
+              <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-gov-green dark:text-emerald-400 text-[10px] font-semibold border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" /> Grounded
+              </span>
+            )}
+          </div>
+          <span className="text-[11px] text-gov-text-secondary dark:text-gray-400 block mt-0.5">
+            {isPdfConnectedToAiChat
+              ? "All chat queries are actively grounded in this tender document's clauses."
+              : "Document disconnected — chatbot is in general Indian Standards consultation mode."}
           </span>
         </div>
       </div>
@@ -31,31 +40,31 @@ export const ChatPdfContextBanner: React.FC<ChatPdfContextBannerProps> = ({ onTr
         {analysis && onTransferFindings && isPdfConnectedToAiChat && (
           <button
             onClick={onTransferFindings}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-apple-mint/15 hover:bg-apple-mint/25 text-apple-mint border border-apple-mint/30 transition-colors text-[11px] font-medium"
-            title="Import tender audit issues into chat prompt"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-white dark:bg-slate-800 hover:bg-gov-blue-light text-gov-navy dark:text-gray-200 border border-gov-border dark:border-slate-700 transition-colors text-xs font-semibold"
+            title="Import top compliance findings into chat"
           >
-            <ArrowDownToDot className="w-3.5 h-3.5" />
+            <ArrowDownToDot className="w-3.5 h-3.5 text-gov-blue" />
             <span>Transfer Findings</span>
           </button>
         )}
 
         <button
           onClick={() => setIsPdfConnectedToAiChat(!isPdfConnectedToAiChat)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-medium transition-colors ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-semibold transition-colors ${
             isPdfConnectedToAiChat
-              ? "bg-apple-red/15 hover:bg-apple-red/25 text-apple-red border-apple-red/30"
-              : "bg-apple-blue/15 hover:bg-apple-blue/25 text-apple-blue border-apple-blue/30"
+              ? "bg-white dark:bg-slate-800 text-gov-red border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-950/30"
+              : "bg-gov-blue text-white border-gov-blue hover:bg-blue-700"
           }`}
         >
           {isPdfConnectedToAiChat ? (
             <>
               <Link2Off className="w-3.5 h-3.5" />
-              <span>Disconnect PDF</span>
+              <span>Detach PDF Context</span>
             </>
           ) : (
             <>
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Reconnect PDF</span>
+              <FileText className="w-3.5 h-3.5" />
+              <span>Talk to Loaded PDF</span>
             </>
           )}
         </button>
@@ -63,3 +72,5 @@ export const ChatPdfContextBanner: React.FC<ChatPdfContextBannerProps> = ({ onTr
     </div>
   );
 };
+
+export default ChatPdfContextBanner;

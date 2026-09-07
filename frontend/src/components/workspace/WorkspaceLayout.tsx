@@ -1,11 +1,11 @@
 import React, { useState, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { UnifiedAuditWorkspace } from "./UnifiedAuditWorkspace";
-import { WorkspaceAiPanel } from "./WorkspaceAiPanel";
-import { WorkspaceResizeHandle } from "./WorkspaceResizeHandle";
-import { useLayoutDrag } from "./useLayoutDrag";
-import type { WorkspaceAnalysis } from "../../types";
-import type { ChatMessage } from "../ChatMessageItem";
+import { UnifiedAuditWorkspace } from "@/components/workspace/UnifiedAuditWorkspace";
+import { WorkspaceAiPanel } from "@/components/workspace/WorkspaceAiPanel";
+import { WorkspaceResizeHandle } from "@/components/workspace/WorkspaceResizeHandle";
+import { useLayoutDrag } from "@/components/workspace/useLayoutDrag";
+import type { WorkspaceAnalysis } from "@/types";
+import type { ChatMessage } from "@/components/ChatMessageItem";
 
 interface WorkspaceLayoutProps {
   viewMode?: "audit" | "pdf" | "both";

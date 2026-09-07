@@ -63,9 +63,14 @@ export interface MacStatus {
   error?: string;
 }
 
+export type ClusterStatus = MacStatus;
+
 export async function fetchMacStatus(): Promise<MacStatus> {
   const res = await fetch(`${API_BASE}/mac-status`);
-  if (!res.ok) throw new Error("Failed to fetch Mac status");
+  if (!res.ok) throw new Error("Failed to fetch cluster status");
   return res.json();
 }
+
+export const fetchClusterStatus = fetchMacStatus;
+
 
