@@ -4,11 +4,8 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-from backend.config.paths import LLM_DIR
-from backend.config.settings import app_settings
 from backend.engine.llm_interface import BaseLlmProvider
-from backend.engine.local_gguf_provider import LocalGgufLlmProvider
-from backend.engine.singleton_registry import get_singleton
+from backend.engine.llm_service import get_llm_provider
 from backend.logger.app_logger import get_logger
 from backend.models.standard_model import IndianStandard
 
@@ -44,12 +41,7 @@ class RecommendationAuditor:
 
     def _get_provider(self) -> BaseLlmProvider:
         if self._provider is None:
-            m_path = str(LLM_DIR / "Qwen2.5-3B-Instruct-Q4_K_M.gguf")
-            ctx = app_settings.distributed_reasoning.fast_model_n_ctx
-            self._provider = get_singleton(
-                "rec_auditor_llm",
-                lambda: LocalGgufLlmProvider(model_path=m_path, n_ctx=ctx, rope_freq_scale=1.0),
-            )
+            self._provider = get_llm_provider("local")
         return self._provider
 
     def _build_prompt(self, query: str, candidates: list[_CandidateTuple]) -> str:

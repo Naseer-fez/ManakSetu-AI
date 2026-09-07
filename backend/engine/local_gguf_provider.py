@@ -200,33 +200,34 @@ class LocalGgufLlmProvider(BaseLlmProvider):
         effective_max_tokens = max_tokens or (512 if "2b" in model_p.lower() else app_settings.llm.max_tokens)
         msgs = _build_messages(prompt, system_prompt, model_p)
         sampling = _build_sampling_kwargs()
-        try:
-            resp = self._model.create_chat_completion(
-                messages=msgs,
-                temperature=app_settings.llm.temperature,
-                max_tokens=effective_max_tokens,
-                grammar=grammar,
-                **sampling,
-            )
-            choices = resp.get("choices", [])
-            return str(choices[0]["message"].get("content", "")) if choices and "message" in choices[0] else None
-        except (ValueError, RuntimeError, TypeError, KeyError, IndexError, OSError) as exc:
-            if grammar is not None:
-                logger.warning(f"[FALLBACK] GGUF grammar inference error ({type(exc).__name__}: {exc}) — retrying without grammar")
-                try:
-                    resp = self._model.create_chat_completion(
-                        messages=msgs,
-                        temperature=app_settings.llm.temperature,
-                        max_tokens=effective_max_tokens,
-                        **sampling,
-                    )
-                    choices = resp.get("choices", [])
-                    return str(choices[0]["message"].get("content", "")) if choices and "message" in choices[0] else None
-                except (ValueError, RuntimeError, TypeError, KeyError, IndexError, OSError) as exc2:
-                    logger.warning(f"[FALLBACK] GGUF unconstrained inference also failed ({type(exc2).__name__}: {exc2})")
-                    return None
-            logger.warning(f"[FALLBACK] GGUF inference error ({type(exc).__name__}: {exc})")
-            return None
+        with self._lock:
+            try:
+                resp = self._model.create_chat_completion(
+                    messages=msgs,
+                    temperature=app_settings.llm.temperature,
+                    max_tokens=effective_max_tokens,
+                    grammar=grammar,
+                    **sampling,
+                )
+                choices = resp.get("choices", [])
+                return str(choices[0]["message"].get("content", "")) if choices and "message" in choices[0] else None
+            except (ValueError, RuntimeError, TypeError, KeyError, IndexError, OSError, MemoryError) as exc:
+                if grammar is not None:
+                    logger.warning(f"[FALLBACK] GGUF grammar inference error ({type(exc).__name__}: {exc}) — retrying without grammar")
+                    try:
+                        resp = self._model.create_chat_completion(
+                            messages=msgs,
+                            temperature=app_settings.llm.temperature,
+                            max_tokens=effective_max_tokens,
+                            **sampling,
+                        )
+                        choices = resp.get("choices", [])
+                        return str(choices[0]["message"].get("content", "")) if choices and "message" in choices[0] else None
+                    except (ValueError, RuntimeError, TypeError, KeyError, IndexError, OSError, MemoryError) as exc2:
+                        logger.warning(f"[FALLBACK] GGUF unconstrained inference also failed ({type(exc2).__name__}: {exc2})")
+                        return None
+                logger.warning(f"[FALLBACK] GGUF inference error ({type(exc).__name__}: {exc})")
+                return None
 
     def _sync_generate_stream(
         self,
@@ -270,33 +271,34 @@ class LocalGgufLlmProvider(BaseLlmProvider):
                             last_token = token
                         yield c
 
-        try:
-            resp = self._model.create_chat_completion(
-                messages=msgs,
-                temperature=app_settings.llm.temperature,
-                max_tokens=effective_max_tokens,
-                stream=True,
-                grammar=grammar,
-                **sampling,
-            )
-            yield from _iter_with_repeat_guard(resp)
-        except (ValueError, RuntimeError, TypeError, KeyError, IndexError, OSError) as exc:
-            if grammar is not None:
-                logger.warning(f"[FALLBACK] GGUF grammar streaming error ({type(exc).__name__}: {exc}) — retrying without grammar")
-                try:
-                    resp = self._model.create_chat_completion(
-                        messages=msgs,
-                        temperature=app_settings.llm.temperature,
-                        max_tokens=effective_max_tokens,
-                        stream=True,
-                        **sampling,
-                    )
-                    yield from _iter_with_repeat_guard(resp)
-                    return
-                except (ValueError, RuntimeError, TypeError, KeyError, IndexError, OSError) as exc2:
-                    logger.warning(f"[FALLBACK] GGUF unconstrained streaming also failed ({type(exc2).__name__}: {exc2})")
-            logger.warning(f"[FALLBACK] GGUF streaming error ({type(exc).__name__}: {exc})")
-            yield f"\n[Error: {type(exc).__name__}]"
+        with self._lock:
+            try:
+                resp = self._model.create_chat_completion(
+                    messages=msgs,
+                    temperature=app_settings.llm.temperature,
+                    max_tokens=effective_max_tokens,
+                    stream=True,
+                    grammar=grammar,
+                    **sampling,
+                )
+                yield from _iter_with_repeat_guard(resp)
+            except (ValueError, RuntimeError, TypeError, KeyError, IndexError, OSError, MemoryError) as exc:
+                if grammar is not None:
+                    logger.warning(f"[FALLBACK] GGUF grammar streaming error ({type(exc).__name__}: {exc}) — retrying without grammar")
+                    try:
+                        resp = self._model.create_chat_completion(
+                            messages=msgs,
+                            temperature=app_settings.llm.temperature,
+                            max_tokens=effective_max_tokens,
+                            stream=True,
+                            **sampling,
+                        )
+                        yield from _iter_with_repeat_guard(resp)
+                        return
+                    except (ValueError, RuntimeError, TypeError, KeyError, IndexError, OSError, MemoryError) as exc2:
+                        logger.warning(f"[FALLBACK] GGUF unconstrained streaming also failed ({type(exc2).__name__}: {exc2})")
+                logger.warning(f"[FALLBACK] GGUF streaming error ({type(exc).__name__}: {exc})")
+                yield f"\n[Error: {type(exc).__name__}]"
 
     async def generate_text(
         self,
@@ -319,9 +321,12 @@ class LocalGgufLlmProvider(BaseLlmProvider):
                 out = await asyncio.to_thread(self._sync_generate, prompt, system_prompt, max_tokens, use_grammar)
                 if out and out.strip():
                     return out.strip()
+        except asyncio.CancelledError:
+            logger.warning("Local GGUF: Async generation was cancelled")
+            raise
         except BackpressureError:
             raise
-        except (ValueError, RuntimeError, OSError) as exc:
+        except (ValueError, RuntimeError, OSError, MemoryError) as exc:
             logger.warning(f"Local GGUF: Async generation error ({type(exc).__name__}: {exc})")
         finally:
             async with self._queue_lock:

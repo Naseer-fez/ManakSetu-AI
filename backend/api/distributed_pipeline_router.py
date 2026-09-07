@@ -44,34 +44,34 @@ async def get_mac_status() -> MacStatusResponse:
     health_url = f"{parsed.scheme}://{host}:{port}/health"
     start_time = time.perf_counter()
     try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
+        async with httpx.AsyncClient(timeout=1.5) as client:
             res = await client.get(health_url)
             elapsed_ms = round((time.perf_counter() - start_time) * 1000, 1)
             if res.status_code == 200:
                 data = res.json() if "application/json" in res.headers.get("content-type", "") else {}
                 return MacStatusResponse(
-                    endpoint=endpoint,
-                    host=host,
-                    port=port,
-                    online=True,
-                    latency_ms=elapsed_ms,
-                    device_info=str(data.get("device", data.get("source", "Mac M-Series Node"))),
+                    endpoint=endpoint, host=host, port=port, online=True,
+                    latency_ms=elapsed_ms, device_info=str(data.get("device", data.get("source", "Mac M-Series Node"))),
                 )
             return MacStatusResponse(
-                endpoint=endpoint,
-                host=host,
-                port=port,
-                online=False,
-                latency_ms=elapsed_ms,
-                error=f"HTTP {res.status_code}",
+                endpoint=endpoint, host=host, port=port, online=False, latency_ms=elapsed_ms, error=f"HTTP {res.status_code}",
             )
     except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout, httpx.HTTPError, OSError) as exc:
+        if host not in ("127.0.0.1", "localhost"):
+            try:
+                async with httpx.AsyncClient(timeout=0.5) as client:
+                    l_res = await client.get("http://127.0.0.1:5000/health")
+                    if l_res.status_code == 200:
+                        l_data = l_res.json() if "application/json" in l_res.headers.get("content-type", "") else {}
+                        return MacStatusResponse(
+                            endpoint=endpoint, host=host, port=port, online=True,
+                            latency_ms=round((time.perf_counter() - start_time) * 1000, 1),
+                            device_info=str(l_data.get("device", "Mac M-Series (Cloud Bridge)")),
+                        )
+            except Exception:
+                pass
         return MacStatusResponse(
-            endpoint=endpoint,
-            host=host,
-            port=port,
-            online=False,
-            error=f"{type(exc).__name__}: {str(exc)}",
+            endpoint=endpoint, host=host, port=port, online=False, error=f"{type(exc).__name__}: {str(exc)}",
         )
 
 

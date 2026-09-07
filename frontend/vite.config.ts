@@ -13,6 +13,13 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5173,
     allowedHosts: true,
+    hmr: {
+      overlay: false,
+    },
+    headers: {
+      "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Embedder-Policy": "credentialless",
+    },
     proxy: {
       "/api": {
         target: process.env.VITE_BACKEND_URL || "http://127.0.0.1:8000",

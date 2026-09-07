@@ -40,7 +40,7 @@ start "BIS-SpecAI [1] Mock Mac Reasoning Node (Port 5000)" cmd /k "cd /d "%ROOT_
 
 :: 2. Launch Backend API (Port 8000) with MAC_AVAILABLE=true
 echo [2/3] Launching Backend Server (Port 8000, Mac Distributed)...
-start "BIS-SpecAI [2] Backend API (Port 8000)" cmd /k "cd /d "%ROOT_DIR%" && call "%VENV_DIR%\Scripts\activate.bat" && set "MAC_AVAILABLE=true" && python run_all.py || pause"
+start "BIS-SpecAI [2] Backend API (Port 8000)" cmd /k "cd /d "%ROOT_DIR%" && call "%VENV_DIR%\Scripts\activate.bat" && set "MAC_AVAILABLE=true" && set "MAC_ENDPOINT=http://127.0.0.1:5000/reason" && python run_all.py || pause"
 
 :: 3. Launch Frontend UI (Port 5173)
 echo [3/3] Launching Frontend UI (Port 5173)...
