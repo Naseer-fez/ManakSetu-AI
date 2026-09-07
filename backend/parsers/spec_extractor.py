@@ -54,6 +54,7 @@ class SpecExtractor:
                     item_id=idx,
                     product_title=title,
                     spec_summary=para[:300],
+                    source_text=para,
                     cited_standards=cited,
                     outdated_citations=outdated,
                 )
@@ -79,6 +80,7 @@ class SpecExtractor:
                             category="Outdated Standard",
                             issue_text=f"Item #{item.item_id} '{item.product_title}' cites {out}.",
                             corrective_action="Update tender reference to latest active reaffirmed standard.",
+                            item_id=item.item_id,
                         )
                     )
             if not item.cited_standards:
@@ -88,6 +90,7 @@ class SpecExtractor:
                         category="Missing Standard Reference",
                         issue_text=f"Item #{item.item_id} '{item.product_title}' has no explicit Indian Standard cited.",
                         corrective_action="Add recommended IS standard code and mandatory QCO clause.",
+                        item_id=item.item_id,
                     )
                 )
         return issues

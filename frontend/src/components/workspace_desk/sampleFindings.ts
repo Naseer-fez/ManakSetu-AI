@@ -16,6 +16,8 @@ export const SAMPLE_WORKSPACE_FINDINGS: ComplianceFindingItem[] = [
       "Tender clause stipulates legacy component specs without citing mandatory certification under notified Quality Control Order.",
     suggestedCorrection:
       "Update clause to mandate valid statutory certification license and conforming marking as per Department Order.",
+    sourceText: "",
+    replacementText: "Update clause to mandate valid statutory certification license and conforming marking as per Department Order.",
   },
   {
     id: "finding-2",
@@ -28,6 +30,8 @@ export const SAMPLE_WORKSPACE_FINDINGS: ComplianceFindingItem[] = [
       "Clause references a withdrawn year edition of the testing standard without accounting for subsequent amendments.",
     suggestedCorrection:
       "Cite the reaffirmed standard edition with all prevailing amendments applicable on the tender notice date.",
+    sourceText: "",
+    replacementText: "Cite the reaffirmed standard edition with all prevailing amendments applicable on the tender notice date.",
   },
   {
     id: "finding-3",
@@ -40,6 +44,8 @@ export const SAMPLE_WORKSPACE_FINDINGS: ComplianceFindingItem[] = [
       "Factory inspection and third-party laboratory verification criteria conform to recommended procurement guidelines.",
     suggestedCorrection:
       "No modification required. Clause structure aligns with standard quality assurance norms.",
+    sourceText: "",
+    replacementText: "No modification required. Clause structure aligns with standard quality assurance norms.",
   },
   {
     id: "finding-4",
@@ -52,5 +58,7 @@ export const SAMPLE_WORKSPACE_FINDINGS: ComplianceFindingItem[] = [
       "Packaging specifications mention batch traceability but do not specify whether standard conformity mark must appear on primary package.",
     suggestedCorrection:
       "Verify with issuing authority if outer carton and primary container both require indelible conformity markings.",
+    sourceText: "",
+    replacementText: "Verify with issuing authority if outer carton and primary container both require indelible conformity markings.",
   },
 ];

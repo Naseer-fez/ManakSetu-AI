@@ -38,6 +38,38 @@ export async function createWorkspace(name: string): Promise<{ workspace_id: str
   return res.json();
 }
 
+export interface WorkspaceExtraction {
+  document_html: string;
+  markdown: string;
+  page_count: number;
+  word_count: number;
+  document_name: string;
+}
+
+export async function extractWorkspaceDocument(workspaceId: string, file: File): Promise<WorkspaceExtraction> {
+  const body = new FormData();
+  body.append("file", file);
+  const res = await fetch(`${API_BASE}/workspaces/${workspaceId}/extract`, { method: "POST", body });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(detail || "Failed to extract workspace document");
+  }
+  return res.json() as Promise<WorkspaceExtraction>;
+}
+
+export async function exportWorkspacePdf(workspaceId: string, html: string, documentName: string): Promise<Blob> {
+  const res = await fetch(`${API_BASE}/workspaces/${workspaceId}/export-pdf`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ html, document_name: documentName }),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(detail || "Failed to regenerate PDF");
+  }
+  return res.blob();
+}
+
 export async function analyzeWorkspace(workspaceId: string, file: File): Promise<WorkspaceAnalysis> {
   const body = new FormData();
   body.append("file", file);
@@ -160,4 +192,3 @@ export async function generateTenderClauses(
   if (!res.ok) throw new Error("Failed to generate tender clauses");
   return res.json();
 }
-

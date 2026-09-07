@@ -11,6 +11,7 @@ class ExtractedLineItem(BaseModel):
     item_id: int
     product_title: str
     spec_summary: str
+    source_text: str = ""
     cited_standards: list[str] = Field(default_factory=list)
     outdated_citations: list[str] = Field(default_factory=list)
     recommended_standards: list[StandardRecommendation] = Field(
@@ -24,6 +25,7 @@ class ComplianceIssue(BaseModel):
     category: str
     issue_text: str
     corrective_action: str
+    item_id: int | None = None
 
 
 class TenderAnalysisReport(BaseModel):

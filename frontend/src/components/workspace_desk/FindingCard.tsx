@@ -9,6 +9,7 @@ interface FindingCardProps {
   onIgnore: (id: string) => void;
   onReset: (id: string) => void;
   onAskAi: (finding: ComplianceFindingItem) => void;
+  onCorrectionChange: (id: string, value: string) => void;
 }
 
 export const FindingCard: React.FC<FindingCardProps> = ({
@@ -17,6 +18,7 @@ export const FindingCard: React.FC<FindingCardProps> = ({
   onIgnore,
   onReset,
   onAskAi,
+  onCorrectionChange,
 }) => {
   const isResolved = finding.resolution !== "pending";
 
@@ -45,9 +47,17 @@ export const FindingCard: React.FC<FindingCardProps> = ({
           <span className="text-[10px] uppercase font-bold tracking-wider text-apple-mint/80 block mb-1">
             Suggested Correction
           </span>
-          <p className="text-slate-200 text-[11px] leading-relaxed">{finding.suggestedCorrection}</p>
+          <textarea
+            value={finding.replacementText}
+            onChange={(event) => onCorrectionChange(finding.id, event.target.value)}
+            rows={3}
+            className="w-full resize-y rounded-lg bg-white/5 border border-white/10 text-slate-200 text-[11px] leading-relaxed p-2 outline-none focus:border-apple-mint/50"
+            aria-label={`Replacement text for ${finding.clauseLocation}`}
+          />
         </div>
       )}
+
+      {finding.applyError && <p className="text-[11px] text-apple-red mb-3">{finding.applyError}</p>}
 
       <div className="flex items-center justify-between pt-1 border-t border-white/5 text-xs">
         <div className="flex items-center gap-1.5">
@@ -57,13 +67,14 @@ export const FindingCard: React.FC<FindingCardProps> = ({
               className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/15 text-white/80 flex items-center gap-1 text-[11px]"
               title="Reset resolution"
             >
-              <Undo2 className="w-3 h-3" /> Undo ({finding.resolution})
+              <Undo2 className="w-3 h-3" /> Reopen finding
             </button>
           ) : (
             <>
               <button
                 onClick={() => onApply(finding.id)}
-                className="px-2.5 py-1 rounded-lg bg-apple-mint/20 hover:bg-apple-mint/30 text-apple-mint flex items-center gap-1 text-[11px] font-medium"
+                disabled={!finding.sourceText.trim() || !finding.replacementText.trim()}
+                className="px-2.5 py-1 rounded-lg bg-apple-mint/20 hover:bg-apple-mint/30 text-apple-mint disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 text-[11px] font-medium"
               >
                 <Check className="w-3 h-3" /> Apply
               </button>

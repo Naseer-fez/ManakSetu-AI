@@ -10,6 +10,7 @@ interface FindingsPanelProps {
   onIgnoreFinding: (id: string) => void;
   onResetFinding: (id: string) => void;
   onAskAiForFinding: (finding: ComplianceFindingItem) => void;
+  onCorrectionChange: (id: string, value: string) => void;
 }
 
 export const FindingsPanel: React.FC<FindingsPanelProps> = ({
@@ -18,6 +19,7 @@ export const FindingsPanel: React.FC<FindingsPanelProps> = ({
   onIgnoreFinding,
   onResetFinding,
   onAskAiForFinding,
+  onCorrectionChange,
 }) => {
   const [filter, setFilter] = useState<"all" | FindingStatus>("all");
   const filtered = filterFindings(findings, filter);
@@ -68,6 +70,7 @@ export const FindingsPanel: React.FC<FindingsPanelProps> = ({
               onIgnore={onIgnoreFinding}
               onReset={onResetFinding}
               onAskAi={onAskAiForFinding}
+              onCorrectionChange={onCorrectionChange}
             />
           ))
         )}

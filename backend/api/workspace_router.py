@@ -19,13 +19,22 @@ from backend.engine.gpu_policy import CudaUnavailableError, require_cuda_async
 from backend.engine.hybrid_retriever import HybridRetriever
 from backend.engine.singleton_registry import get_singleton
 from backend.ingestion.standards_loader import StandardsLoader
-from backend.models.document_contracts import ExportRequest, Revision, TemplateProfile
+from backend.models.document_contracts import ExportPdfRequest, ExportRequest, Revision, TemplateProfile
 from backend.parsers.document_parser import DocumentParser
+from backend.parsers.pdf_markdown_parser import PdfMarkdownParser
+from backend.services.workspace_document_service import (
+    count_words,
+    markdown_to_editor_html,
+    page_count,
+    render_pdf,
+    safe_pdf_filename,
+)
 
 router = APIRouter(prefix="/api/v1/workspaces", tags=["workspaces"])
 store = WorkspaceStore(app_settings.storage.workspace_dir)
 artifacts = ArtifactStore(app_settings.storage.workspace_dir)
 parser = DocumentParser()
+pdf_markdown_parser = PdfMarkdownParser()
 auditor = ComplianceEngine()
 revisions = RevisionEngine()
 templates = TemplateEngine()
@@ -46,6 +55,24 @@ class ChatResponse(BaseModel):
     question: str
     answer: str
     grounded: bool = True
+
+
+MAX_UPLOAD_BYTES = 200 * 1024 * 1024
+
+
+async def _read_upload(file: UploadFile) -> bytes:
+    """Read one upload with the same bounded streaming policy as analysis."""
+    chunks: list[bytes] = []
+    total_read = 0
+    while True:
+        chunk = await file.read(1024 * 1024)
+        if not chunk:
+            break
+        total_read += len(chunk)
+        if total_read > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="File exceeds 200MB limit")
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 def _require_workspace(workspace_id: str) -> None:
@@ -93,18 +120,7 @@ async def analyze_workspace(workspace_id: str, file: UploadFile | None = File(No
     document_name = file.filename if file and file.filename else "tender.txt"
     text = raw_text or ""
     if file:
-        MAX_UPLOAD_BYTES = 200 * 1024 * 1024
-        chunks_buf: list[bytes] = []
-        total_read = 0
-        while True:
-            chunk = await file.read(1024 * 1024)  # 1MB chunks
-            if not chunk:
-                break
-            total_read += len(chunk)
-            if total_read > MAX_UPLOAD_BYTES:
-                raise HTTPException(status_code=413, detail="File exceeds 200MB limit")
-            chunks_buf.append(chunk)
-        content = b"".join(chunks_buf)
+        content = await _read_upload(file)
         path, digest = await artifacts.save(workspace_id, document_name, content)
         text = await asyncio.to_thread(parser.extract_text_from_file, path)
         await store.add_document(workspace_id, document_name, path, digest, text)
@@ -115,6 +131,39 @@ async def analyze_workspace(workspace_id: str, file: UploadFile | None = File(No
     revision = await asyncio.to_thread(revisions.propose, text, report, run)
     await store.save_revision(workspace_id, revision)
     return {"report": report.model_dump(), "compliance_run": run.model_dump(), "revision": revision.model_dump()}
+
+
+@router.post("/{workspace_id}/extract")
+async def extract_workspace_document(workspace_id: str, file: UploadFile = File(...)) -> dict[str, object]:
+    """Persist a PDF and return semantic HTML for the TipTap editor."""
+    _require_workspace(workspace_id)
+    if await store.get_workspace(workspace_id) is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    document_name = Path(file.filename or "tender.pdf").name
+    if not document_name.lower().endswith(".pdf"):
+        raise HTTPException(status_code=415, detail="Only PDF uploads are supported")
+    content = await _read_upload(file)
+    if not content.startswith(b"%PDF-"):
+        raise HTTPException(status_code=415, detail="Uploaded file is not a valid PDF")
+    try:
+        pages = await asyncio.to_thread(page_count, content)
+        markdown_text = await asyncio.to_thread(
+            pdf_markdown_parser.extract_markdown_from_bytes, content, document_name
+        )
+        document_html = await asyncio.to_thread(markdown_to_editor_html, markdown_text)
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail="PDF could not be read") from exc
+    if not markdown_text.strip() or not document_html.strip():
+        raise HTTPException(status_code=422, detail="PDF contains no readable text")
+    path, digest = await artifacts.save(workspace_id, document_name, content)
+    await store.add_document(workspace_id, document_name, path, digest, markdown_text)
+    return {
+        "document_html": document_html,
+        "markdown": markdown_text,
+        "page_count": pages,
+        "word_count": count_words(markdown_text),
+        "document_name": document_name,
+    }
 
 
 @router.post("/{workspace_id}/revisions/{revision_id}/approve", response_model=Revision)
@@ -233,3 +282,23 @@ async def export_workspace(workspace_id: str, req: ExportRequest) -> Response:
     except TemplateError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return Response(content=payload, media_type=media_type, headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@router.post("/{workspace_id}/export-pdf")
+async def export_workspace_pdf(workspace_id: str, req: ExportPdfRequest) -> Response:
+    """Render current TipTap HTML as a clean revised PDF."""
+    _require_workspace(workspace_id)
+    if await store.get_workspace(workspace_id) is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    try:
+        payload = await asyncio.to_thread(render_pdf, req.html, req.document_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    filename = safe_pdf_filename(req.document_name)
+    return Response(
+        content=payload,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

@@ -41,12 +41,16 @@ class ComplianceEngine:
             issues = self.extractor.identify_compliance_issues(items)
         coverage_count = 0
         findings: list[ComplianceFinding] = []
+        item_by_id = {item.item_id: item for item in items}
         for idx, iss in enumerate(issues, start=1):
             st = ComplianceState.NON_COMPLIANT if iss.severity == "HIGH" else ComplianceState.NEEDS_VERIFICATION
+            source_item = item_by_id.get(iss.item_id) if iss.item_id is not None else None
             findings.append(ComplianceFinding(
                 finding_id=f"finding-{idx}", category=iss.category, severity=iss.severity, state=st,
                 message=iss.issue_text, corrective_action=iss.corrective_action,
-                evidence=[EvidenceRef(source="uploaded_document", locator=document_name)],
+                source_text=source_item.source_text if source_item else "",
+                clause_location=f"Item #{source_item.item_id}" if source_item else "",
+                evidence=[EvidenceRef(source="uploaded_document", locator=document_name, snippet=source_item.source_text if source_item else "")],
             ))
         mandatory_stds: list[str] = []
         for item in items:
@@ -71,6 +75,8 @@ class ComplianceEngine:
                             finding_id=f"qco-{len(findings) + 1}", category="Mandatory QCO", severity="HIGH",
                             state=ComplianceState.NON_COMPLIANT, message=f"{std.is_code} is mandatory under {eff_qco.scheme.value}, but tender lacks certification req.",
                             corrective_action=eff_qco.clause_requirement,
+                            source_text=item.source_text,
+                            clause_location=f"Item #{item.item_id}",
                             evidence=[EvidenceRef(source="bundled:qco_registry", locator=std.is_code, snippet=eff_qco.clause_requirement)],
                         ))
             if item.recommended_standards and (

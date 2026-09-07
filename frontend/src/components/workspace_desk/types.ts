@@ -5,6 +5,7 @@ export type FindingStatus = "critical" | "warning" | "passed" | "needs_verificat
 export type FindingResolution = "pending" | "applied" | "ignored";
 
 export interface DocumentSource {
+  workspaceId?: string;
   name: string;
   type: string;
   sizeBytes: number;
@@ -12,6 +13,8 @@ export interface DocumentSource {
   contentSnippet: string;
   rawText?: string;
   file?: File;
+  documentHtml?: string;
+  pdfUrl?: string;
 }
 
 export interface ComplianceFindingItem {
@@ -21,6 +24,9 @@ export interface ComplianceFindingItem {
   resolution: FindingResolution;
   explanation: string;
   suggestedCorrection: string;
+  sourceText: string;
+  replacementText: string;
+  applyError?: string;
   standardReference?: string;
   category: string;
 }

@@ -30,6 +30,8 @@ class ComplianceFinding(BaseModel):
     state: ComplianceState
     message: str
     corrective_action: str = ""
+    source_text: str = ""
+    clause_location: str = ""
     evidence: list[EvidenceRef] = Field(default_factory=list)
 
 
@@ -87,3 +89,9 @@ class ExportRequest(BaseModel):
     values: dict[str, str] = Field(default_factory=dict)
     revision_id: str | None = None
     allow_draft: bool = False
+
+
+class ExportPdfRequest(BaseModel):
+    """Sanitized editor content submitted for regenerated PDF output."""
+    html: str
+    document_name: str = "tender.pdf"

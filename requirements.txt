@@ -40,10 +40,16 @@ chromadb
 rank-bm25
 
 PyMuPDF
+pymupdf4llm
 pypdf
 pdfplumber
 pdf2image
 docling
+
+# Workspace editor HTML extraction and PDF regeneration
+Markdown
+bleach
+weasyprint
 
 paddleocr
 pytesseract
