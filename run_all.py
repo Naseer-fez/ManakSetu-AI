@@ -1,8 +1,20 @@
 """Convenience runner script for BIS-SpecAI backend server and test suite."""
 from __future__ import annotations
 
+from pathlib import Path
 import subprocess
 import sys
+
+
+def _ensure_venv() -> None:
+    """Auto-forward execution into .venv Python to guarantee CUDA and ML dependencies."""
+    venv_py = Path(__file__).resolve().parent / ".venv" / "Scripts" / "python.exe"
+    if venv_py.exists() and Path(sys.executable).resolve() != venv_py.resolve():
+        sys.exit(subprocess.call([str(venv_py), *sys.argv]))
+
+
+_ensure_venv()
+
 from backend.config.settings import app_settings
 
 

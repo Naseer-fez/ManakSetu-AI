@@ -53,6 +53,7 @@ export interface RecommendationResponse {
   total_matches: number;
   recommendations: StandardRecommendation[];
   latency_ms: number;
+  message?: string | null;
 }
 
 export interface ImageClassificationResult {
@@ -129,15 +130,6 @@ export interface GraphData {
   }>;
 }
 
-export interface PipelineAnswerResponse {
-  query: string;
-  answer: string;
-  source_tier: string;
-  synthesized_context?: string;
-  summarized_history?: string;
-  confidence_score: number;
-}
-
 export interface DocumentChunkEvidence {
   file_name: string;
   page_number: number;
@@ -175,4 +167,13 @@ export interface VoiceStatusResponse {
   default_language: string;
 }
 
-
+export interface WorkspaceAnalysis {
+  report: TenderAnalysisReport;
+  compliance_run: {
+    dataset_version: string;
+    coverage: number;
+    export_blocked: boolean;
+    findings: Array<{ severity: string; state: string; category: string; message: string }>;
+  };
+  revision: { revision_id: string; status: string; changes: string[] };
+}

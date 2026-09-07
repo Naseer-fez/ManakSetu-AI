@@ -1,13 +1,14 @@
 """Prompt formatting and response synthesis helpers for LLM Orchestrator."""
 from __future__ import annotations
 
-from backend.engine.prompts import MASTER_SYSTEM_PROMPT, format_evaluation_prompt
+from backend.engine.prompts.prompt_formatter import format_evaluation_prompt
+from backend.config.llm_config import LLM_PROMPTS
 from backend.models.llm_contracts import LlmInputContract, LlmStandardizedResponse
 
 
 def build_orchestrator_prompt(c: LlmInputContract) -> tuple[str, str]:
     """Build system and user prompt for contract evaluation."""
-    sys_p = c.system_instruction or MASTER_SYSTEM_PROMPT
+    sys_p = c.system_instruction or LLM_PROMPTS["MASTER_SYSTEM_PROMPT"]
     top_s = c.candidate_standards[0] if c.candidate_standards else None
     user_p = format_evaluation_prompt(
         query=c.query, standard=top_s, qco_alert=c.qco_alert,

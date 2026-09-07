@@ -1,12 +1,31 @@
-import React, { useState } from "react";
-import { ShoppingCart, Send, ShieldAlert, CheckCircle2 } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { ShoppingCart, Send, Download } from "lucide-react";
 import { simulateGemBid } from "../services/api.service";
+import { useRemembrance } from "../context/RemembranceContext";
+import { GemResultCard } from "./gem/GemResultCard";
 import { clsx } from "clsx";
 
 export const GemSimulatorView: React.FC = () => {
-  const [formData, setFormData] = useState({ id: "GEM-2026-B-882910", cat: "Power Distribution", title: "Distribution Transformer 2500 kVA", spec: "Outdoor 33kV 3-phase oil immersed transformer with copper winding" });
+  const { analysis, gemSimItem, setGemSimItem } = useRemembrance();
+  const [formData, setFormData] = useState({
+    id: "GEM-2026-B-882910", cat: "Power Distribution", title: "Distribution Transformer 2500 kVA",
+    spec: "Outdoor 33kV 3-phase oil immersed transformer with copper winding"
+  });
   const [result, setResult] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (gemSimItem) {
+      setFormData({
+        id: `GEM-TENDER-ITEM-${gemSimItem.item_id}`,
+        cat: gemSimItem.recommended_standards[0]?.standard?.division || "General Procurement",
+        title: gemSimItem.product_title,
+        spec: gemSimItem.spec_summary,
+      });
+    }
+  }, [gemSimItem]);
+
+  const tenderItems = analysis?.report?.items || [];
 
   const handleSimulate = async () => {
     setLoading(true);
@@ -26,6 +45,24 @@ export const GemSimulatorView: React.FC = () => {
             <p className="text-sm text-white/50 mt-1">Simulate how GeM portal queries BIS-SpecAI for compliance during bid creation.</p>
           </div>
         </div>
+
+        {tenderItems.length > 0 && (
+          <div className="flex items-center gap-2 bg-white/5 p-2 rounded-2xl border border-white/10 text-xs">
+            <Download className="w-3.5 h-3.5 text-apple-mint shrink-0" />
+            <span className="text-white/60">From Tender:</span>
+            <select
+              onChange={(e) => {
+                const itm = tenderItems.find(t => String(t.item_id) === e.target.value);
+                if (itm) setGemSimItem(itm);
+              }}
+              value={gemSimItem?.item_id || ""}
+              className="bg-black/50 text-white rounded-xl px-2 py-1 border border-white/10 text-xs flex-1"
+            >
+              <option value="">-- Select Tender Line Item --</option>
+              {tenderItems.map(t => <option key={t.item_id} value={t.item_id}>#{t.item_id}: {t.product_title}</option>)}
+            </select>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           {[
@@ -51,23 +88,7 @@ export const GemSimulatorView: React.FC = () => {
         </div>
       </div>
 
-      {result && (
-        <div className="apple-glass-dark border border-apple-mint/40 p-6 rounded-3xl space-y-4 shadow-[0_0_40px_rgba(48,209,88,0.15)]">
-          <div className="flex items-center justify-between border-b border-white/10 pb-4">
-            <span className="font-semibold text-white tracking-tight flex items-center gap-2"><CheckCircle2 className="w-5 h-5 text-apple-mint"/> Bid Validation Successful</span>
-            <span className="px-3 py-1 rounded-full bg-apple-mint/20 text-apple-mint text-xs font-bold uppercase tracking-wider">{result.status}</span>
-          </div>
-          <div className="text-white/70 text-sm">
-            <span className="text-white/40">Primary Standard:</span> <span className="font-medium text-white/90">{result.primary_standard}</span>
-          </div>
-          {result.is_qco_mandatory && (
-            <div className="bg-apple-red/20 border border-apple-red/30 p-3 rounded-xl text-apple-red text-sm flex items-center gap-2 font-medium">
-              <ShieldAlert className="w-5 h-5" />
-              Mandatory QCO Enforced: {result.qco_order}
-            </div>
-          )}
-        </div>
-      )}
+      {result && <GemResultCard result={result} />}
     </div>
   );
 };

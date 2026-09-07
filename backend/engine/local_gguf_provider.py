@@ -75,7 +75,7 @@ class LocalGgufLlmProvider(BaseLlmProvider):
         elif is_fast_model:
             self._n_ctx = app_settings.distributed_reasoning.fast_model_n_ctx
         else:
-            self._n_ctx = app_settings.llm.n_ctx
+            self._n_ctx = getattr(app_settings.distributed_reasoning, "thinking_model_n_ctx", None) or app_settings.llm.n_ctx
 
         self._n_threads = n_threads or app_settings.llm.n_threads
 
@@ -150,7 +150,8 @@ class LocalGgufLlmProvider(BaseLlmProvider):
         if not Path(self._model_path).exists():
             logger.info(f"Local GGUF: Model binary not found at '{self._model_path}'")
             return None
-        configs = [(self._n_ctx, self._n_gpu_layers), (4096, self._n_gpu_layers), (4096, 0)]
+        fallback_ctx = max(512, self._n_ctx // 2) if self._n_ctx > 1024 else self._n_ctx
+        configs = [(self._n_ctx, self._n_gpu_layers), (fallback_ctx, self._n_gpu_layers), (fallback_ctx, 0)]
         for ctx_cand, gpu_cand in configs:
             try:
                 return self._init_llama_instance(ctx_cand, gpu_cand)

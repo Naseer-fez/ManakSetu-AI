@@ -20,6 +20,6 @@ def test_load_settings_from_real_yaml() -> None:
     assert settings.server.log_level == "INFO"
     assert settings.ai_engine.top_k_recommendations == 5
     assert settings.llm.provider == "local_gguf"
-    assert settings.llm.n_ctx == 4096
+    assert settings.llm.n_ctx == 32768
     assert settings.llm.n_threads == 4
     assert "all-MiniLM-L6-v2" in settings.ai_engine.embedding_model_name

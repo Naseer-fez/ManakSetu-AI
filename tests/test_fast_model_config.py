@@ -8,12 +8,13 @@ from backend.engine.llm_service import get_llm_provider
 
 
 def test_fast_model_settings_loaded() -> None:
-    """Verify fast model configuration fields are correctly loaded from config."""
+    """Verify fast model and thinking model configuration fields are correctly loaded from config."""
     settings = load_settings()
-    assert settings.distributed_reasoning.fast_model_n_ctx == 65536
+    assert settings.distributed_reasoning.fast_model_n_ctx == 4096
+    assert settings.distributed_reasoning.thinking_model_n_ctx == 32768
     assert settings.distributed_reasoning.fast_model_n_gpu_layers == 36
-    assert settings.distributed_reasoning.fast_model_kv_quant == "q4_0"
-    assert settings.distributed_reasoning.fast_model_rope_freq_scale == 0.5
+    assert settings.distributed_reasoning.fast_model_kv_quant == "q8_0"
+    assert settings.distributed_reasoning.fast_model_rope_freq_scale == 1.0
 
 
 def test_local_provider_uses_fast_model_config_in_mac_mode() -> None:

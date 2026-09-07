@@ -1,6 +1,7 @@
 """Factory for instantiating Speech-to-Text and Text-to-Speech providers."""
 from __future__ import annotations
 
+import threading
 from typing import Type
 from backend.config.settings import VoiceSettings, app_settings
 from backend.engine.voice.faster_whisper_stt import FasterWhisperSTT
@@ -18,34 +19,42 @@ _TTS_REGISTRY: dict[str, Type[TextToSpeechProvider]] = {
 
 _stt_singleton: SpeechToTextProvider | None = None
 _tts_singleton: TextToSpeechProvider | None = None
+_stt_lock = threading.Lock()
+_tts_lock = threading.Lock()
 
 
 def get_stt_provider(settings: VoiceSettings | None = None) -> SpeechToTextProvider:
-    """Get or create singleton STT provider according to configuration."""
+    """Get or create singleton STT provider according to configuration with thread safety."""
     global _stt_singleton
     if _stt_singleton is None:
-        cfg = settings or app_settings.voice
-        cls = _STT_REGISTRY.get(cfg.stt_provider.lower())
-        if cls is None:
-            raise ValueError(f"Unknown STT provider '{cfg.stt_provider}'. Available: {list(_STT_REGISTRY.keys())}")
-        _stt_singleton = cls(cfg)
+        with _stt_lock:
+            if _stt_singleton is None:
+                cfg = settings or app_settings.voice
+                cls = _STT_REGISTRY.get(cfg.stt_provider.lower())
+                if cls is None:
+                    raise ValueError(f"Unknown STT provider '{cfg.stt_provider}'. Available: {list(_STT_REGISTRY.keys())}")
+                _stt_singleton = cls(cfg)
     return _stt_singleton
 
 
 def get_tts_provider(settings: VoiceSettings | None = None) -> TextToSpeechProvider:
-    """Get or create singleton TTS provider according to configuration."""
+    """Get or create singleton TTS provider according to configuration with thread safety."""
     global _tts_singleton
     if _tts_singleton is None:
-        cfg = settings or app_settings.voice
-        cls = _TTS_REGISTRY.get(cfg.tts_provider.lower())
-        if cls is None:
-            raise ValueError(f"Unknown TTS provider '{cfg.tts_provider}'. Available: {list(_TTS_REGISTRY.keys())}")
-        _tts_singleton = cls(cfg)
+        with _tts_lock:
+            if _tts_singleton is None:
+                cfg = settings or app_settings.voice
+                cls = _TTS_REGISTRY.get(cfg.tts_provider.lower())
+                if cls is None:
+                    raise ValueError(f"Unknown TTS provider '{cfg.tts_provider}'. Available: {list(_TTS_REGISTRY.keys())}")
+                _tts_singleton = cls(cfg)
     return _tts_singleton
 
 
 def reset_voice_singletons() -> None:
     """Reset singletons (useful for test isolations)."""
     global _stt_singleton, _tts_singleton
-    _stt_singleton = None
-    _tts_singleton = None
+    with _stt_lock:
+        with _tts_lock:
+            _stt_singleton = None
+            _tts_singleton = None

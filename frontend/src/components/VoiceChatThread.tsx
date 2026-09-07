@@ -26,9 +26,10 @@ export const VoiceChatThread: React.FC<VoiceChatThreadProps> = ({ messages, isPr
     if (audioRef.current) audioRef.current.pause();
     const audio = new Audio(url);
     audioRef.current = audio;
-    audio.play();
+    audio.play().catch(() => setPlayingId(null));
     setPlayingId(id);
     audio.onended = () => setPlayingId(null);
+    audio.onerror = () => setPlayingId(null);
   };
 
   if (messages.length === 0 && !isProcessing) {

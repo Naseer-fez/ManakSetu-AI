@@ -31,7 +31,13 @@ class HybridRetriever:
         self._bm25 = BM25Engine()
         self._bm25.build_index(self._standards)
 
-    def search(self, query: str, division: str | None = None, top_k: int = 5) -> list[tuple[IndianStandard, float, list[str]]]:
+    def search(
+        self,
+        query: str,
+        division: str | None = None,
+        top_k: int = 5,
+        min_relevance_score: float | None = None,
+    ) -> list[tuple[IndianStandard, float, list[str]]]:
         """Perform Stage 1: Macro Standard Discovery."""
         if not query.strip():
             return []
@@ -86,7 +92,10 @@ class HybridRetriever:
         candidates = ranked[:pool_size]
         final_ranked = self._reranker.rerank(query, candidates, top_k)
         
-        return final_ranked
+        if min_relevance_score is not None and min_relevance_score > 0.0:
+            surviving = [item for item in final_ranked if item[1] >= min_relevance_score]
+            return surviving[:top_k]
+        return final_ranked[:top_k]
 
     def search_document_evidence(self, query: str, top_k: int = 5) -> list[DocumentChunkEvidence]:
         """Perform Stage 2: Micro Evidence & Deep Clause Retrieval from PDF chunks."""
@@ -103,10 +112,19 @@ class HybridRetriever:
         return evidences
 
     def search_with_evidence(
-        self, query: str, division: str | None = None, top_k: int = 5, top_k_chunks: int = 5
+        self,
+        query: str,
+        division: str | None = None,
+        top_k: int = 5,
+        top_k_chunks: int = 5,
+        min_relevance_score: float | None = None,
     ) -> tuple[list[tuple[IndianStandard, float, list[str]]], list[DocumentChunkEvidence]]:
         """Perform unified Dual-Index Retrieval unifying macro standards and micro PDF clause excerpts."""
-        standards = self.search(query=query, division=division, top_k=top_k)
+        standards = self.search(
+            query=query, division=division, top_k=top_k, min_relevance_score=min_relevance_score
+        )
+        if not standards:
+            return [], []
         evidences = self.search_document_evidence(query=query, top_k=top_k_chunks)
         codes = [s[0].is_code for s in standards]
         for ev in evidences:

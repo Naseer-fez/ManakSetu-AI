@@ -1,0 +1,68 @@
+demo-components-buttons-copy.tsx
+
+import {
+  CopyButton,
+  type CopyButtonProps,
+} from '@/components/animate-ui/components/buttons/copy';
+
+interface CopyButtonDemoProps {
+  variant: CopyButtonProps['variant'];
+  size: CopyButtonProps['size'];
+}
+
+export default function CopyButtonDemo({ variant, size }: CopyButtonDemoProps) {
+  return <CopyButton variant={variant} size={size} content="Hello world!" />;
+}
+Installation
+CLI
+Manual
+npm
+pnpm
+yarn
+bun
+
+npx shadcn@latest add @animate-ui/components-buttons-copy
+Usage
+
+<CopyButton content="Hello world!" />
+API Reference
+CopyButton
+Animate UI API Reference - Button Primitive
+Prop	Type	Default
+content
+
+string
+-
+copied?
+
+boolean
+-
+onCopiedChange?
+
+(copied: boolean, content?: string) => void
+-
+delay?
+
+number
+3000
+variant?
+
+"default" | "accent" | "destructive" | "outline" | "secondary" | "ghost" | "link"
+default
+size?
+
+"default" | "sm" | "lg" | "icon"
+default
+hoverScale?
+
+number
+1.05
+tapScale?
+
+number
+0.95
+...props?
+
+HTMLMotionProps<"button">
+-
+Credits

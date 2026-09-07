@@ -11,10 +11,8 @@ from backend.engine.llm_providers import (
     DeterministicFallbackProvider, GeminiLlmProvider, LocalGgufLlmProvider,
     OpenAiLlmProvider, OpenRouterLlmProvider, RemoteMacLlmProvider,
 )
-from backend.engine.prompts import (
-    MASTER_SYSTEM_PROMPT, format_chunk_excerpts, format_evaluation_prompt,
-    format_tender_clause_prompt, format_testing_matrix_prompt
-)
+from backend.engine.prompts.prompt_formatter import format_chunk_excerpts, format_evaluation_prompt, format_testing_matrix_prompt, format_tender_clause_prompt
+from backend.config.llm_config import LLM_PROMPTS
 from backend.engine.embedding_service import get_embedding_service
 from backend.engine.query_guardrails import QueryGuardrails
 from backend.logger.app_logger import get_logger
@@ -130,7 +128,7 @@ class LlmService:
     async def explain_recommendation(self, query: str, standard: IndianStandard, qco_alert: str, document_chunks: list[Any] | None = None, **kwargs: Any) -> str:
         user_p = format_evaluation_prompt(query=query, standard=standard, qco_alert=qco_alert, document_chunks=document_chunks, **kwargs)
         try:
-            res = await self._provider.generate_text(user_p, MASTER_SYSTEM_PROMPT)
+            res = await self._provider.generate_text(user_p, LLM_PROMPTS["MASTER_SYSTEM_PROMPT"])
             if res and res.strip():
                 return res.strip()
         except (ValueError, RuntimeError, OSError) as exc:
@@ -140,7 +138,7 @@ class LlmService:
     async def generate_testing_matrix(self, query: str, standard: IndianStandard, qco_alert: str, document_chunks: list[Any] | None = None, **kwargs: Any) -> str:
         user_p = format_testing_matrix_prompt(query=query, standard=standard, qco_alert=qco_alert, document_chunks=document_chunks, **kwargs)
         try:
-            res = await self._provider.generate_text(user_p, MASTER_SYSTEM_PROMPT)
+            res = await self._provider.generate_text(user_p, LLM_PROMPTS["MASTER_SYSTEM_PROMPT"])
             if res and res.strip():
                 return res.strip()
         except (ValueError, RuntimeError, OSError) as exc:
@@ -150,7 +148,7 @@ class LlmService:
     async def generate_tender_clauses(self, query: str, standard: IndianStandard, qco_alert: str, document_chunks: list[Any] | None = None, **kwargs: Any) -> str:
         user_p = format_tender_clause_prompt(query=query, standard=standard, qco_alert=qco_alert, document_chunks=document_chunks, **kwargs)
         try:
-            res = await self._provider.generate_text(user_p, MASTER_SYSTEM_PROMPT)
+            res = await self._provider.generate_text(user_p, LLM_PROMPTS["MASTER_SYSTEM_PROMPT"])
             if res and res.strip():
                 return res.strip()
         except (ValueError, RuntimeError, OSError) as exc:
@@ -160,7 +158,7 @@ class LlmService:
     async def explain_recommendation_stream(self, query: str, standard: IndianStandard, qco_alert: str, document_chunks: list[Any] | None = None, **kwargs: Any) -> AsyncGenerator[str, None]:
         user_p = format_evaluation_prompt(query=query, standard=standard, qco_alert=qco_alert, document_chunks=document_chunks, **kwargs)
         try:
-            async for chunk in self._provider.generate_text_stream(user_p, MASTER_SYSTEM_PROMPT):
+            async for chunk in self._provider.generate_text_stream(user_p, LLM_PROMPTS["MASTER_SYSTEM_PROMPT"]):
                 yield chunk
         except (ValueError, RuntimeError, OSError, TypeError) as exc:
             logger.warning(f"LlmService: Stream error ({type(exc).__name__}: {exc})")
@@ -189,7 +187,7 @@ class LlmService:
             chunks_str = "\n\n".join(f"--- Excerpt ---\n{c}" for c in relevant_chunks)
             user_p += f"\n\nRelevant Excerpts from Uploaded Document:\n{chunks_str}\n\nPlease prioritize answering based on the provided Relevant Excerpts from Uploaded Document."
         try:
-            res = await self._provider.generate_text(user_p, MASTER_SYSTEM_PROMPT)
+            res = await self._provider.generate_text(user_p, LLM_PROMPTS["MASTER_SYSTEM_PROMPT"])
             if res and res.strip():
                 return res.strip()
         except (ValueError, RuntimeError, OSError) as exc:
@@ -220,7 +218,7 @@ class LlmService:
             chunks_str = "\n\n".join(f"--- Excerpt ---\n{c}" for c in relevant_chunks)
             user_p += f"\n\nRelevant Excerpts from Uploaded Document:\n{chunks_str}\n\nPlease prioritize answering based on the provided Relevant Excerpts from Uploaded Document."
         try:
-            async for chunk in self._provider.generate_text_stream(user_p, MASTER_SYSTEM_PROMPT):
+            async for chunk in self._provider.generate_text_stream(user_p, LLM_PROMPTS["MASTER_SYSTEM_PROMPT"]):
                 yield chunk
         except (ValueError, RuntimeError, OSError, TypeError) as exc:
             logger.warning(f"LlmService: Stream query error ({type(exc).__name__}: {exc})")

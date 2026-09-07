@@ -13,12 +13,8 @@ from backend.engine.llm_service import get_llm_provider
 from backend.engine.orchestrator_helpers import (
     build_orchestrator_prompt, count_history_tokens, synthesize_contract_response,
 )
-from backend.engine.prompts.fast_model_prompts import (
-    FAST_MODEL_CONTEXT_COMPRESSION_PROMPT,
-    FAST_MODEL_DIRECT_QA_PROMPT,
-    FAST_MODEL_PDF_SYNTHESIZER_PROMPT,
-)
-from backend.engine.prompts.thinking_model_prompts import THINKING_MODEL_DEEP_AUDITOR_PROMPT
+from backend.config.llm_config import LLM_PROMPTS
+
 from backend.engine.query_guardrails import QueryGuardrails
 from backend.engine.web_search_guardrail import WebSearchGuardrail
 from backend.engine.web_search_service import WebSearchService
@@ -125,13 +121,15 @@ class LlmOrchestrator:
         kwargs = _safe_kwargs(self._local.generate_text, max_tokens=250, use_grammar=False)
         try:
             summary = await asyncio.wait_for(
-                self._local.generate_text(prompt, system_prompt=FAST_MODEL_CONTEXT_COMPRESSION_PROMPT, **kwargs),
+                self._local.generate_text(prompt, system_prompt=LLM_PROMPTS["FAST_MODEL_CONTEXT_COMPRESSION_PROMPT"], **kwargs),
                 timeout=20.0,
             )
             return summary.strip() if summary else ""
         except (asyncio.TimeoutError, RuntimeError, ValueError, OSError) as exc:
             logger.warning(f"Failed to summarize chat history ({type(exc).__name__}): {exc}")
-            return history_text[-2000:]
+            fast_ctx = app_settings.distributed_reasoning.fast_model_n_ctx
+            max_chars = max(2000, fast_ctx * 2)
+            return history_text[-max_chars:]
 
     async def synthesize_document_context(self, query: str, document_chunks: list[dict[str, Any]]) -> str:
         """Generate a descriptive, compressed contextual prompt from retrieved chunks using local model."""
@@ -145,12 +143,14 @@ class LlmOrchestrator:
         kwargs = _safe_kwargs(self._local.generate_text, max_tokens=300, use_grammar=False)
         try:
             return await asyncio.wait_for(
-                self._local.generate_text(prompt, system_prompt=FAST_MODEL_PDF_SYNTHESIZER_PROMPT, **kwargs),
+                self._local.generate_text(prompt, system_prompt=LLM_PROMPTS["FAST_MODEL_PDF_SYNTHESIZER_PROMPT"], **kwargs),
                 timeout=25.0,
             )
         except (asyncio.TimeoutError, RuntimeError, ValueError, OSError) as exc:
             logger.warning(f"Failed to synthesize document context ({type(exc).__name__}): {exc}")
-            return chunk_texts[:2000]
+            fast_ctx = app_settings.distributed_reasoning.fast_model_n_ctx
+            max_chars = max(2000, fast_ctx * 2)
+            return chunk_texts[:max_chars]
 
     async def execute_fast_answer(self, query: str, pdf_text: str = "") -> PipelineAnswerResponse:
         """Feature A: Rapid response executing solely on the local model."""
@@ -178,22 +178,24 @@ class LlmOrchestrator:
             # Support RAG for Fast Models
             chunks = self._reranker.retrieve_and_rerank_chunks(query, pdf_text, top_k=3)
             chunk_texts = "\n\n".join(str(c.get("text", "")) for c in chunks)
+            fast_ctx = app_settings.distributed_reasoning.fast_model_n_ctx
+            max_chars = max(2000, fast_ctx * 2)
             if chunk_texts:
                 prompt += f"\n\nDocument Context:\n{chunk_texts}"
             else:
-                prompt += f"\n\nDocument Context:\n{pdf_text[:2000]}"
+                prompt += f"\n\nDocument Context:\n{pdf_text[:max_chars]}"
         prompt += "\n\nProvide a rapid, precise answer on Indian Standards compliance and requirements."
         kwargs = _safe_kwargs(self._local.generate_text, max_tokens=256, use_grammar=False)
         try:
             raw = await asyncio.wait_for(
                 self._local.generate_text(
                     prompt,
-                    system_prompt=FAST_MODEL_DIRECT_QA_PROMPT,
+                    system_prompt=LLM_PROMPTS["FAST_MODEL_DIRECT_QA_PROMPT"],
                     **kwargs,
                 ),
                 timeout=15.0,
             )
-            if raw and len(raw.strip()) > 5:
+            if raw and len(raw.strip()) > 5 and "No LLM model is currently available" not in raw:
                 return PipelineAnswerResponse(
                     query=query, 
                     answer=raw.strip(), 
@@ -203,8 +205,30 @@ class LlmOrchestrator:
                 )
         except (asyncio.TimeoutError, RuntimeError, ValueError, OSError) as exc:
             logger.warning(f"Fast Answer local inference failed ({type(exc).__name__}): {exc}")
+
+        # Failover: If local model unavailable, query cloud/remote reasoning engine
+        if self._distributed or getattr(self, "_cloud", None) is not None:
+            try:
+                raw = await asyncio.wait_for(
+                    self._cloud.generate_text(
+                        prompt,
+                        system_prompt=LLM_PROMPTS["FAST_MODEL_DIRECT_QA_PROMPT"],
+                    ),
+                    timeout=self._timeout_sec,
+                )
+                if raw and len(raw.strip()) > 5 and "No LLM model is currently available" not in raw:
+                    return PipelineAnswerResponse(
+                        query=query,
+                        answer=raw.strip(),
+                        source_tier="remote_mac_fast_failover" if self._distributed else "cloud_fast_failover",
+                        web_search_used=bool(ws_sources),
+                        web_sources=ws_sources,
+                    )
+            except (asyncio.TimeoutError, RuntimeError, ValueError, OSError) as exc:
+                logger.warning(f"Fast Answer failover to cloud reasoning failed ({type(exc).__name__}): {exc}")
+
         return PipelineAnswerResponse(
-            query=query, answer="No local LLM available for fast answer generation.", source_tier="unavailable", confidence_score=0.0
+            query=query, answer="No local or remote AI model is currently active to generate fast answers.", source_tier="unavailable", confidence_score=0.0
         )
 
     async def execute_heavy_reasoning(
@@ -224,8 +248,10 @@ class LlmOrchestrator:
             )
 
         history_summary = ""
+        thinking_ctx = getattr(app_settings.distributed_reasoning, "thinking_model_n_ctx", None) or app_settings.llm.n_ctx
+        summary_threshold = int(thinking_ctx * 0.75)
         if chat_history:
-            if refresh_context or count_history_tokens(chat_history) > 24000:
+            if refresh_context or count_history_tokens(chat_history) > summary_threshold:
                 history_summary = await self.summarize_chat_history(chat_history)
 
         synthesized_context = ""
@@ -250,10 +276,10 @@ class LlmOrchestrator:
         if self._distributed:
             try:
                 raw = await asyncio.wait_for(
-                    self._cloud.generate_text(mac_prompt, system_prompt=THINKING_MODEL_DEEP_AUDITOR_PROMPT),
+                    self._cloud.generate_text(mac_prompt, system_prompt=LLM_PROMPTS["THINKING_MODEL_DEEP_AUDITOR_PROMPT"]),
                     timeout=self._timeout_sec,
                 )
-                if raw and len(raw.strip()) > 10:
+                if raw and len(raw.strip()) > 10 and "No LLM model is currently available" not in raw:
                     return PipelineAnswerResponse(
                         query=query, answer=raw.strip(), source_tier="remote_mac",
                         synthesized_context=synthesized_context, summarized_history=history_summary,
@@ -263,8 +289,8 @@ class LlmOrchestrator:
                 logger.warning(f"Remote Mac reasoning unavailable ({type(exc).__name__}) -> Local fallback")
 
         try:
-            raw = await self._local.generate_text(mac_prompt, system_prompt=THINKING_MODEL_DEEP_AUDITOR_PROMPT)
-            if raw and len(raw.strip()) > 10:
+            raw = await self._local.generate_text(mac_prompt, system_prompt=LLM_PROMPTS["THINKING_MODEL_DEEP_AUDITOR_PROMPT"])
+            if raw and len(raw.strip()) > 10 and "No LLM model is currently available" not in raw:
                 return PipelineAnswerResponse(
                     query=query, answer=raw.strip(), source_tier="local_2b_fallback" if self._distributed else "local_7b",
                     synthesized_context=synthesized_context, summarized_history=history_summary,

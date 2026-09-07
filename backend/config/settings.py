@@ -53,6 +53,7 @@ class AiEngineSettings(BaseModel):
     embedding_model_name: str = str(EMBEDDING_MODEL_PATH)
     multilingual_model_name: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     similarity_threshold: float = 0.35
+    min_relevance_score: float = 0.35
     top_k_recommendations: int = 5
     hybrid_alpha: float = 0.65
     enable_gpu: bool = True
@@ -67,7 +68,7 @@ class LlmSettings(BaseModel):
     provider: str = "local_gguf"
     model_name: str = "Qwen2.5-7B-Instruct-Q4_K_M"
     model_path: str = str(DEFAULT_GGUF_MODEL_PATH)
-    n_ctx: int = 4096
+    n_ctx: int = 32768
     n_threads: int = 4
     n_gpu_layers: int = 24
     chat_format: str = "chatml"
@@ -104,7 +105,8 @@ class VoiceSettings(BaseModel):
     max_audio_duration_sec: int = 60
     audio_sample_rate: int = 16000
     tts_cache_dir: str = str(TTS_CACHE_DIR)
-    stt_task: str = "translate"
+    stt_task: str = "transcribe"
+    stt_initial_prompt: str = "BIS Bureau of Indian Standards voice conversation. Hello, Hi."
     live_enabled: bool = True
     live_max_turns: int = 5
     live_sentence_delimiters: str = ".!?"
@@ -126,13 +128,15 @@ class LoggingSettings(BaseModel):
 
 
 class DistributedReasoningSettings(BaseModel):
-    mac_available: bool = False
-    mac_endpoint: str = "http://localhost:5000/reason"
-    local_preprocessor_model: str = "llm/gemma-2b.gguf"
-    fast_model_n_ctx: int = 65536
+    mac_available: bool = True
+    mac_endpoint: str = "http://10.118.237.94:5008/reason"
+    local_preprocessor_model: str = "llm/Qwen2.5-3B-Instruct-Q4_K_M.gguf"
+    fast_model_n_ctx: int = 4096
+    thinking_model_n_ctx: int = 32768
     fast_model_n_gpu_layers: int = 36
-    fast_model_kv_quant: str = "q4_0"
-    fast_model_rope_freq_scale: float = 0.5
+    fast_model_kv_quant: str = "q8_0"
+    fast_model_rope_freq_scale: float = 1.0
+    mac_timeout_sec: float = 25.0
 
 
 class WebSearchSettings(BaseModel):
@@ -208,11 +212,40 @@ def load_settings(config_path: str | Path | None = None) -> AppSettings:
         if "distributed_reasoning" not in raw_data or not isinstance(raw_data["distributed_reasoning"], dict):
             raw_data["distributed_reasoning"] = {}
         raw_data["distributed_reasoning"]["mac_available"] = env_mac.strip().lower() in ("1", "true", "yes", "on")
+    env_endpoint = os.getenv("MAC_ENDPOINT")
+    if env_endpoint is not None and env_endpoint.strip():
+        if "distributed_reasoning" not in raw_data or not isinstance(raw_data["distributed_reasoning"], dict):
+            raw_data["distributed_reasoning"] = {}
+        raw_data["distributed_reasoning"]["mac_endpoint"] = env_endpoint.strip()
+    env_fast_ctx = os.getenv("FAST_MODEL_N_CTX")
+    if env_fast_ctx is not None and env_fast_ctx.strip().isdigit():
+        if "distributed_reasoning" not in raw_data or not isinstance(raw_data["distributed_reasoning"], dict):
+            raw_data["distributed_reasoning"] = {}
+        raw_data["distributed_reasoning"]["fast_model_n_ctx"] = int(env_fast_ctx.strip())
+    env_thinking_ctx = os.getenv("THINKING_MODEL_N_CTX") or os.getenv("N_CTX")
+    if env_thinking_ctx is not None and env_thinking_ctx.strip().isdigit():
+        ctx_val = int(env_thinking_ctx.strip())
+        if "distributed_reasoning" not in raw_data or not isinstance(raw_data["distributed_reasoning"], dict):
+            raw_data["distributed_reasoning"] = {}
+        raw_data["distributed_reasoning"]["thinking_model_n_ctx"] = ctx_val
+        if "llm" not in raw_data or not isinstance(raw_data["llm"], dict):
+            raw_data["llm"] = {}
+        raw_data["llm"]["n_ctx"] = ctx_val
     env_ws = os.getenv("WEB_SEARCH_ENABLED")
     if env_ws is not None:
         if "web_search" not in raw_data or not isinstance(raw_data["web_search"], dict):
             raw_data["web_search"] = {}
         raw_data["web_search"]["enabled"] = env_ws.strip().lower() in ("1", "true", "yes", "on")
+    env_min_score = os.getenv("MIN_RELEVANCE_SCORE") or os.getenv("SIMILARITY_THRESHOLD")
+    if env_min_score is not None:
+        try:
+            score_val = float(env_min_score.strip())
+            if "ai_engine" not in raw_data or not isinstance(raw_data["ai_engine"], dict):
+                raw_data["ai_engine"] = {}
+            raw_data["ai_engine"]["similarity_threshold"] = score_val
+            raw_data["ai_engine"]["min_relevance_score"] = score_val
+        except ValueError:
+            pass
     return AppSettings.model_validate(raw_data)
 
 

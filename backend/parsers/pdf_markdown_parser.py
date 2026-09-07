@@ -33,10 +33,26 @@ def _parse_single_file(file_path: str) -> str:
 class PdfMarkdownParser:
     """Extracts clean Markdown text from PDF using PyMuPDF4LLM on CPU."""
 
-    def extract_markdown_from_bytes(self, pdf_bytes: bytes) -> str:
-        """Parse PDF byte stream into markdown without consuming VRAM."""
+    def extract_markdown_from_bytes(self, pdf_bytes: bytes, filename: str | None = None) -> str:
+        """Parse PDF byte stream or Markdown/text bytes into clean markdown."""
         if not pdf_bytes:
             return ""
+
+        if filename:
+            lower_name = filename.lower()
+            if lower_name.endswith((".md", ".markdown", ".txt")):
+                try:
+                    return pdf_bytes.decode("utf-8").strip()
+                except UnicodeDecodeError:
+                    return pdf_bytes.decode("latin-1", errors="replace").strip()
+
+        if not pdf_bytes.startswith(b"%PDF-"):
+            try:
+                decoded = pdf_bytes.decode("utf-8").strip()
+                if decoded:
+                    return decoded
+            except UnicodeDecodeError:
+                pass
 
         temp_path: str | None = None
         try:
@@ -58,10 +74,20 @@ class PdfMarkdownParser:
                     pass
 
     def extract_markdown_from_path(self, file_path: str) -> str:
-        """Parse PDF file directly from filesystem path into clean markdown."""
+        """Parse PDF or Markdown file directly from filesystem path into clean markdown."""
         if not os.path.isfile(file_path):
-            logger.warning(f"PDF file does not exist: {file_path}")
+            logger.warning(f"File does not exist: {file_path}")
             return ""
+
+        lower_path = file_path.lower()
+        if lower_path.endswith((".md", ".markdown", ".txt")):
+            try:
+                with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+                    return f.read().strip()
+            except OSError as exc:
+                logger.error(f"Failed to read markdown file at {file_path}: {exc}")
+                return ""
+
         try:
             markdown_content = pymupdf4llm.to_markdown(file_path)
             return markdown_content.strip() if isinstance(markdown_content, str) else ""

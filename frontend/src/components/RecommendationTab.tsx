@@ -1,21 +1,16 @@
 import React, { useState } from "react";
 import { SpotlightSearch } from "./SpotlightSearch";
 import { GlassSpecCard } from "./GlassSpecCard";
-import { LlmExplanationCard } from "./LlmExplanationCard";
-import { AlliedStandardsView } from "./AlliedStandardsView";
-import { ClauseGeneratorView } from "./ClauseGeneratorView";
+import { DivisionFilterPills } from "./standards/DivisionFilterPills";
 import { fetchRecommendations } from "../services/api.service";
 import type { RecommendationResponse } from "../types";
-import { clsx } from "clsx";
+import { BookOpen, Sparkles } from "lucide-react";
 
 export const RecommendationTab: React.FC = () => {
   const [query, setQuery] = useState("");
   const [division, setDivision] = useState("");
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<RecommendationResponse | null>(null);
-  const [selectedIdx, setSelectedIdx] = useState(0);
-
-  const divisions = ["All", "Civil", "Electrical", "Electronics", "Solar"];
 
   const handleSearch = async (customQ?: string, customDiv?: string) => {
     const q = customQ !== undefined ? customQ : query;
@@ -26,7 +21,6 @@ export const RecommendationTab: React.FC = () => {
       const divParam = activeDiv === "All" || !activeDiv ? undefined : activeDiv;
       const res = await fetchRecommendations(q, divParam);
       setData(res);
-      setSelectedIdx(0);
     } catch {
       setData(null);
     } finally {
@@ -36,70 +30,52 @@ export const RecommendationTab: React.FC = () => {
 
   const handleDivisionChange = (div: string) => {
     setDivision(div);
-    if (data !== null && query.trim()) {
-      handleSearch(query, div);
-    }
+    if (query.trim()) handleSearch(query, div);
   };
 
-  const selectedRec = data?.recommendations[selectedIdx] || null;
-
   return (
-    <div className="space-y-8 flex flex-col items-center">
-      <div className="w-full max-w-3xl space-y-4">
-        <SpotlightSearch query={query} setQuery={setQuery} onSearch={() => handleSearch()} loading={loading} />
-        
-        <div className="flex justify-center">
-          <div className="apple-glass-dark p-1 rounded-full flex gap-1">
-            {divisions.map(div => (
-              <button
-                key={div}
-                onClick={() => handleDivisionChange(div)}
-                className={clsx(
-                  "px-4 py-1.5 rounded-full text-xs font-medium transition-all",
-                  division === div || (div === "All" && !division) ? "bg-white/20 text-white shadow-md" : "text-white/60 hover:text-white hover:bg-white/5"
-                )}
-              >
-                {div}
-              </button>
-            ))}
-          </div>
-        </div>
+    <div className="w-full max-w-4xl mx-auto space-y-6 flex flex-col items-center">
+      <div className="w-full space-y-4">
+        <SpotlightSearch
+          query={query}
+          setQuery={setQuery}
+          onSearch={(val) => handleSearch(val)}
+          loading={loading}
+        />
+        <DivisionFilterPills
+          division={division}
+          onSelectDivision={handleDivisionChange}
+        />
       </div>
 
       {!data && !loading ? (
-        <div className="w-full max-w-2xl apple-glass p-10 text-center text-sm text-white/50 rounded-3xl space-y-2">
-          <p className="text-base font-medium text-white/80">BIS Standard Recommendation Engine</p>
-          <p className="text-xs text-white/40">Enter product descriptions, material specifications, or trade terms above and click Search.</p>
+        <div className="w-full apple-glass p-12 text-center rounded-3xl space-y-3 border border-white/10 shadow-xl">
+          <div className="w-12 h-12 rounded-2xl bg-apple-blue/20 border border-apple-blue/30 text-apple-blue flex items-center justify-center mx-auto shadow-md">
+            <BookOpen className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-semibold text-white/90">Indian Standards Search</h3>
+          <p className="text-xs text-white/50 max-w-md mx-auto leading-relaxed">
+            Search for materials, equipment, or products to discover official Bureau of Indian Standards,
+            verify QCO mandatory compliance status, and copy approved GeM tender clauses.
+          </p>
+        </div>
+      ) : loading && !data ? (
+        <div className="w-full apple-glass p-12 text-center rounded-3xl space-y-3 border border-white/10 animate-pulse">
+          <Sparkles className="w-6 h-6 text-apple-indigo mx-auto animate-spin" />
+          <p className="text-sm font-medium text-white/60">
+            Analyzing procurement query across Bureau of Indian Standards...
+          </p>
         </div>
       ) : (
-        <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          <div className="lg:col-span-5 space-y-4">
-            <div className="text-xs font-bold text-white/40 uppercase tracking-wider pl-2">
-              Recommended Standards ({data?.total_matches || 0})
-            </div>
-            {loading ? (
-              <div className="apple-glass p-8 text-center text-sm text-white/40 rounded-3xl animate-pulse">
-                Running semantic inference...
-              </div>
-            ) : (
-              data?.recommendations.map((rec, i) => (
-                <GlassSpecCard key={rec.standard.is_code} rec={rec} isSelected={selectedIdx === i} onSelect={() => setSelectedIdx(i)} />
-              ))
-            )}
+        <div className="w-full space-y-4">
+          <div className="flex items-center justify-between px-2 text-xs text-white/50 font-medium">
+            <span>Found <strong>{data?.total_matches || 0}</strong> standard recommendations</span>
+            {data?.latency_ms !== undefined && <span>Latency: {data.latency_ms}ms</span>}
           </div>
-
-          <div className="lg:col-span-7 space-y-6 sticky top-28">
-            {selectedRec ? (
-              <>
-                <LlmExplanationCard query={query} isCode={selectedRec.standard.is_code} title={selectedRec.standard.title} />
-                <AlliedStandardsView rec={selectedRec} />
-                <ClauseGeneratorView rec={selectedRec} />
-              </>
-            ) : (
-              <div className="apple-glass p-12 text-center text-sm text-white/40 rounded-3xl">
-                Select a standard to view its normative graph and tender clauses.
-              </div>
-            )}
+          <div className="space-y-4">
+            {data?.recommendations.map(rec => (
+              <GlassSpecCard key={rec.standard.is_code} rec={rec} />
+            ))}
           </div>
         </div>
       )}

@@ -50,13 +50,7 @@ def warmup_backend_ai_models() -> float:
         if hasattr(llm_prov, "warmup"):
             llm_prov.warmup()
 
-    # 4. Warm up voice models
-    try:
-        from backend.engine.voice.provider_factory import get_stt_provider, get_tts_provider
-        get_stt_provider().preload()
-        get_tts_provider().preload()
-    except (RuntimeError, ValueError, OSError, ImportError) as exc:
-        logger.warning(f"Voice model preloading failed: {exc}")
+    # 4. Voice models (Faster-Whisper STT, MMS-VITS TTS) are 100% lazy-loaded on demand
 
     try:
         import torch

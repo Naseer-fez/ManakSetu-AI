@@ -3,6 +3,7 @@ import yaml
 import logging
 from typing import Any, AsyncGenerator, List, Dict
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import uvicorn
@@ -27,6 +28,15 @@ app = FastAPI(
     title="Mac Extension Node",
     description="Dedicated Mac node for LLM inference and Vector Search.",
     version="1.0.0",
+)
+
+# Enable CORS for web UI and distributed client access
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Global variables for models
@@ -57,7 +67,7 @@ def load_models():
         logger.info(f"Loading LLM from {llm_path}")
         llm_kwargs = {
             "model_path": llm_path,
-            "n_ctx": int(os.environ.get("N_CTX", config["llm"].get("n_ctx", 32768))),
+            "n_ctx": int(os.environ.get("N_CTX", config["llm"].get("n_ctx", 8192))),
             "n_gpu_layers": int(os.environ.get("N_GPU_LAYERS", config["llm"].get("n_gpu_layers", -1))),
             "verbose": False,
         }
@@ -76,30 +86,50 @@ def load_models():
 
     # Load Embedding Model
     emb_path = get_absolute_path(config["embedding"]["model_path"])
+    emb_device = config["embedding"].get("device", "mps")
     if os.path.exists(emb_path):
-        logger.info(f"Loading Embedding Model from {emb_path}")
-        embed_model = SentenceTransformer(emb_path, device=config["embedding"]["device"])
+        logger.info(f"Loading Embedding Model from {emb_path} (device: {emb_device})")
+        try:
+            embed_model = SentenceTransformer(emb_path, device=emb_device)
+        except Exception as e:
+            logger.warning(f"Failed to load embedding model on {emb_device} ({e}), falling back to CPU")
+            embed_model = SentenceTransformer(emb_path, device="cpu")
     else:
         logger.warning(f"Embedding model not found at {emb_path}")
         
     # Load Reranker Model
     rerank_path = get_absolute_path(config["reranker"]["model_path"])
+    rerank_device = config["reranker"].get("device", "mps")
     if os.path.exists(rerank_path):
-        logger.info(f"Loading Reranker Model from {rerank_path}")
-        rerank_model = CrossEncoder(rerank_path, device=config["reranker"]["device"])
+        logger.info(f"Loading Reranker Model from {rerank_path} (device: {rerank_device})")
+        try:
+            rerank_model = CrossEncoder(rerank_path, device=rerank_device)
+        except Exception as e:
+            logger.warning(f"Failed to load reranker on {rerank_device} ({e}), falling back to CPU")
+            rerank_model = CrossEncoder(rerank_path, device="cpu")
     else:
         logger.warning(f"Reranker model not found at {rerank_path}")
         
     # Load Vector DB
     db_path = get_absolute_path(config["vectordb"]["path"])
+    target_col_name = config["vectordb"].get("collection_name", "document_chunks")
     if os.path.exists(db_path):
         logger.info(f"Loading ChromaDB from {db_path}")
         chroma_client = chromadb.PersistentClient(path=db_path)
         try:
-            collection = chroma_client.get_collection(config["vectordb"]["collection_name"])
-            logger.info("ChromaDB collection loaded.")
+            collection = chroma_client.get_collection(target_col_name)
+            logger.info(f"ChromaDB collection '{target_col_name}' loaded ({collection.count()} items).")
         except Exception as e:
-            logger.error(f"Error loading collection: {e}")
+            logger.warning(f"Collection '{target_col_name}' not found: {e}. Searching available collections...")
+            try:
+                available = chroma_client.list_collections()
+                if available:
+                    first_col = available[0]
+                    first_name = first_col.name if hasattr(first_col, "name") else str(first_col)
+                    collection = chroma_client.get_collection(first_name)
+                    logger.info(f"Fallback: loaded collection '{first_name}' ({collection.count()} items).")
+            except Exception as inner_e:
+                logger.error(f"Failed to load any Chroma collection: {inner_e}")
     else:
         logger.warning(f"Vector DB not found at {db_path}")
 
@@ -108,6 +138,7 @@ class ReasonRequest(BaseModel):
     prompt: str
     system_prompt: str = ""
     stream: bool = False
+    sse: bool = False
 
 class EmbedRequest(BaseModel):
     texts: List[str]
@@ -129,7 +160,9 @@ def health():
         "lora_loaded": lora_loaded,
         "embedding_loaded": embed_model is not None,
         "reranker_loaded": rerank_model is not None,
-        "vectordb_loaded": collection is not None
+        "vectordb_loaded": collection is not None,
+        "collection_name": collection.name if collection else None,
+        "collection_count": collection.count() if collection else 0
     }
 
 @app.post("/reason")
@@ -155,8 +188,16 @@ def reason(req: ReasonRequest):
                 if 'choices' in chunk and len(chunk['choices']) > 0:
                     delta = chunk['choices'][0].get('delta', {})
                     if 'content' in delta:
-                        yield delta['content']
-        return StreamingResponse(stream_gen(), media_type="text/plain")
+                        content = delta['content']
+                        if req.sse:
+                            yield f"data: {content}\n\n"
+                        else:
+                            yield content
+            if req.sse:
+                yield "data: [DONE]\n\n"
+
+        media_type = "text/event-stream" if req.sse else "text/plain"
+        return StreamingResponse(stream_gen(), media_type=media_type)
     else:
         res = llm.create_chat_completion(
             messages=messages,

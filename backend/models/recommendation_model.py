@@ -58,4 +58,5 @@ class RecommendationResponse(BaseModel):
     recommendations: list[StandardRecommendation] = Field(default_factory=list)
     document_evidences: list[DocumentChunkEvidence] = Field(default_factory=list)
     latency_ms: float = 0.0
+    message: str | None = None
 

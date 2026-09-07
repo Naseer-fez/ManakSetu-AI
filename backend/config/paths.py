@@ -45,7 +45,7 @@ DEFAULT_GGUF_MODEL_PATH: Path = Path(os.getenv("DEFAULT_GGUF_MODEL_PATH", str(LL
 GRAMMAR_FILE_PATH: Path = Path(os.getenv("GRAMMAR_FILE_PATH", str(BACKEND_DIR / "engine" / "grammars" / "bis_output.gbnf")))
 
 # Voice model paths
-STT_MODEL_PATH: Path = Path(os.getenv("STT_MODEL_PATH", str(LLM_DIR / "faster-whisper-small")))
+STT_MODEL_PATH: Path = Path(os.getenv("STT_MODEL_PATH", str(LLM_DIR / "faster-whisper-tiny")))
 TTS_ENG_MODEL_PATH: Path = Path(os.getenv("TTS_ENG_MODEL_PATH", str(LLM_DIR / "mms-tts-eng")))
 TTS_HIN_MODEL_PATH: Path = Path(os.getenv("TTS_HIN_MODEL_PATH", str(LLM_DIR / "mms-tts-hin")))
 TTS_CACHE_DIR: Path = Path(os.getenv("TTS_CACHE_DIR", str(DATA_DIR / "tts_cache")))

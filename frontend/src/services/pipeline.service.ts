@@ -1,52 +1,4 @@
-import type { ImageClassificationResult, PipelineResponse } from "../types";
-
-const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) || "/api/v1";
-
-export async function processMultimodalPipeline(
-  formData: FormData
-): Promise<PipelineResponse> {
-  const res = await fetch(`${API_BASE}/pipeline/process`, {
-    method: "POST",
-    body: formData,
-  });
-  if (!res.ok) throw new Error("Multimodal pipeline request failed");
-  return res.json();
-}
-
-export async function transcribeVoiceAudio(audioBlob: Blob): Promise<string> {
-  const formData = new FormData();
-  formData.append("audio_file", audioBlob, "recording.wav");
-  const res = await fetch(`${API_BASE}/voice/transcribe`, {
-    method: "POST",
-    body: formData,
-  });
-  if (!res.ok) throw new Error("Voice transcription failed");
-  const data = await res.json();
-  return data.transcribed_text || "";
-}
-
-export async function synthesizeSpeechAudio(text: string): Promise<Blob> {
-  const res = await fetch(`${API_BASE}/voice/synthesize`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
-  });
-  if (!res.ok) throw new Error("Speech synthesis failed");
-  return res.blob();
-}
-
-export async function classifyTechnicalImage(
-  imageFile: File
-): Promise<ImageClassificationResult> {
-  const formData = new FormData();
-  formData.append("image_file", imageFile);
-  const res = await fetch(`${API_BASE}/image/classify`, {
-    method: "POST",
-    body: formData,
-  });
-  if (!res.ok) throw new Error("Image classification failed");
-  return res.json();
-}
+const API_BASE = (import.meta.env.VITE_API_URL as string) || (import.meta.env.VITE_API_BASE_URL as string) || "/api/v1";
 
 export async function fetchFastAnswer(
   query: string,
@@ -99,5 +51,21 @@ export async function refreshChatContext(
   if (!res.ok) throw new Error("Context refresh failed");
   const data = await res.json();
   return data.summarized_context || "";
+}
+
+export interface MacStatus {
+  endpoint: string;
+  host: string;
+  port: number;
+  online: boolean;
+  latency_ms?: number;
+  device_info?: string;
+  error?: string;
+}
+
+export async function fetchMacStatus(): Promise<MacStatus> {
+  const res = await fetch(`${API_BASE}/mac-status`);
+  if (!res.ok) throw new Error("Failed to fetch Mac status");
+  return res.json();
 }
 

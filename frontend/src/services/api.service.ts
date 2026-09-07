@@ -1,6 +1,6 @@
-import type { GraphData, IndianStandard, MandatoryQCO, RecommendationResponse, TenderAnalysisReport } from "../types";
+import type { GraphData, MandatoryQCO, RecommendationResponse, TenderAnalysisReport, WorkspaceAnalysis } from "../types";
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) || "/api/v1";
+const API_BASE = (import.meta.env.VITE_API_URL as string) || (import.meta.env.VITE_API_BASE_URL as string) || "/api/v1";
 
 export async function fetchRecommendations(
   query: string,
@@ -32,16 +32,31 @@ export async function analyzeTenderDocument(
   return res.json();
 }
 
-export async function fetchStandards(
-  division?: string,
-  query?: string
-): Promise<IndianStandard[]> {
-  const params = new URLSearchParams();
-  if (division) params.append("division", division);
-  if (query) params.append("query", query);
-  const res = await fetch(`${API_BASE}/standards?${params.toString()}`);
-  if (!res.ok) throw new Error("Failed to fetch standards");
+export async function createWorkspace(name: string): Promise<{ workspace_id: string; name: string }> {
+  const res = await fetch(`${API_BASE}/workspaces`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+  if (!res.ok) throw new Error("Failed to create workspace");
   return res.json();
+}
+
+export async function analyzeWorkspace(workspaceId: string, file: File): Promise<WorkspaceAnalysis> {
+  const body = new FormData();
+  body.append("file", file);
+  const res = await fetch(`${API_BASE}/workspaces/${workspaceId}/analyze`, { method: "POST", body });
+  if (!res.ok) throw new Error("Failed to analyze workspace document");
+  return res.json();
+}
+
+export async function askWorkspace(workspaceId: string, question: string, documentText?: string): Promise<{ question: string; answer: string }> {
+  const res = await fetch(`${API_BASE}/workspaces/${workspaceId}/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question, document_text: documentText || "" }) });
+  if (!res.ok) throw new Error("Assistant request failed");
+  return res.json();
+}
+
+export async function exportWorkspace(workspaceId: string, format: "pdf" | "docx", templateId?: string): Promise<Blob> {
+  const template = { template_id: templateId || "uploaded", name: "Uploaded source", source: "officer-uploaded", format: format === "pdf" ? "static_pdf" : "docx", approved: false, fields: [] };
+  const res = await fetch(`${API_BASE}/workspaces/${workspaceId}/export`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ format, template, values: {}, allow_draft: true }) });
+  if (!res.ok) throw new Error("Export requires a mapped template");
+  return res.blob();
 }
 
 export async function fetchKnowledgeGraph(): Promise<GraphData> {
@@ -82,21 +97,6 @@ export async function simulateGemBid(
     }),
   });
   if (!res.ok) throw new Error("Failed to validate GeM bid");
-  return res.json();
-}
-
-export async function explainStandard(
-  query: string,
-  isCode: string,
-  signal?: AbortSignal
-): Promise<{ is_code: string; explanation: string }> {
-  const res = await fetch(`${API_BASE}/explain-standard`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query, is_code: isCode }),
-    signal,
-  });
-  if (!res.ok) throw new Error("Failed to generate LLM explanation");
   return res.json();
 }
 
@@ -148,66 +148,16 @@ export async function explainStandardStream(
   }
 }
 
-export async function askProcurementAssistant(
-  question: string,
-  pdfText?: string,
-  chatHistory?: { role: string; content: string }[]
-): Promise<{ question: string; answer: string }> {
-  const res = await fetch(`${API_BASE}/ask-assistant`, {
+export async function generateTenderClauses(
+  isCode: string,
+  query: string = "Tender technical compliance specification"
+): Promise<{ is_code: string; clause_text: string }> {
+  const res = await fetch(`${API_BASE}/tender-clauses`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question, pdf_text: pdfText, chat_history: chatHistory }),
+    body: JSON.stringify({ is_code: isCode, query }),
   });
-  if (!res.ok) throw new Error("Assistant request failed");
+  if (!res.ok) throw new Error("Failed to generate tender clauses");
   return res.json();
-}
-
-export async function askProcurementAssistantStream(
-  question: string,
-  onChunk: (chunk: string) => void,
-  pdfText?: string,
-  chatHistory?: { role: string; content: string }[],
-  signal?: AbortSignal
-): Promise<void> {
-  const res = await fetch(`${API_BASE}/ask-assistant-stream`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question, pdf_text: pdfText, chat_history: chatHistory }),
-    signal,
-  });
-  if (!res.ok || !res.body) throw new Error("Assistant stream request failed");
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder("utf-8");
-  let buffer = "";
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (value) {
-        buffer += decoder.decode(value, { stream: true });
-      }
-      
-      const events = buffer.split(/\r?\n\r?\n/);
-      if (done) {
-        buffer = "";
-      } else {
-        buffer = events.pop() || "";
-      }
-
-      for (const event of events) {
-        if (!event.trim()) continue;
-        for (const line of event.split(/\r?\n/)) {
-          if (line.startsWith("data:")) {
-            const data = line.startsWith("data: ") ? line.slice(6) : line.slice(5);
-            if (data === "[DONE]") return;
-            if (data.startsWith("[ERROR:")) throw new Error(data);
-            onChunk(data);
-          }
-        }
-      }
-      if (done) break;
-    }
-  } finally {
-    reader.releaseLock();
-  }
 }
 

@@ -1,87 +1,78 @@
 import React from "react";
-import { Search, Mic } from "lucide-react";
+import { Search, X, Loader2 } from "lucide-react";
+import { useDebouncedSearch } from "./standards/useDebouncedSearch";
 import { clsx } from "clsx";
-import { motion, AnimatePresence } from "framer-motion";
 
 interface SpotlightSearchProps {
   query: string;
   setQuery: (val: string) => void;
-  onSearch: () => void;
+  onSearch: (val?: string) => void;
   loading: boolean;
 }
 
-export const SpotlightSearch: React.FC<SpotlightSearchProps> = ({ query, setQuery, onSearch, loading }) => {
-  const [isRecording, setIsRecording] = React.useState(false);
+export const SpotlightSearch: React.FC<SpotlightSearchProps> = ({
+  query,
+  setQuery,
+  onSearch,
+  loading,
+}) => {
+  const { handleManualSearch, clearQuery } = useDebouncedSearch(query, onSearch);
 
   return (
     <div className="relative max-w-2xl mx-auto w-full group">
-      <div className={clsx(
-        "apple-glass-dark rounded-2xl flex items-center p-2 transition-all",
-        "focus-within:ring-2 focus-within:ring-apple-indigo/50 focus-within:bg-black/60"
-      )}>
+      <div
+        className={clsx(
+          "apple-glass-dark rounded-2xl flex items-center px-4 py-2.5 transition-all border border-white/10 shadow-xl",
+          "focus-within:ring-2 focus-within:ring-apple-blue/50 focus-within:border-apple-blue/50 focus-within:bg-black/80"
+        )}
+      >
         <button
           type="button"
-          onClick={() => onSearch()}
+          onClick={handleManualSearch}
           disabled={loading || !query.trim()}
           title="Search"
-          className="p-1 text-white/40 hover:text-white/90 disabled:opacity-40 transition-colors"
+          className="text-white/40 hover:text-white disabled:opacity-40 transition-colors mr-3"
         >
-          <Search className="w-5 h-5 ml-2 mr-2" />
-        </button>
-        
-        <div className="flex-1 relative h-10 flex items-center">
-          <AnimatePresence>
-            {isRecording ? (
-              <motion.div 
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="absolute inset-0 flex items-center"
-              >
-                <div className="w-full h-1 bg-apple-mint/50 rounded overflow-hidden">
-                  <motion.div 
-                    className="h-full bg-apple-mint origin-left"
-                    animate={{ scaleX: [0.1, 1, 0.4, 0.8, 0.2] }}
-                    transition={{ repeat: Infinity, duration: 1.2 }}
-                  />
-                </div>
-              </motion.div>
-            ) : (
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && onSearch()}
-                placeholder="Search standards, e.g. Solar PV module, TMT bars..."
-                className="w-full bg-transparent text-lg text-white/90 placeholder-white/30 focus:outline-none"
-              />
-            )}
-          </AnimatePresence>
-        </div>
-
-        <div className="flex items-center gap-1.5 pr-2">
-          {query && (
-            <button 
-              onClick={() => setQuery("")}
-              className="px-2 py-1 text-white/40 hover:text-white/90 hover:bg-white/10 rounded-xl transition-colors text-xs"
-              title="Clear"
-            >
-              Clear
-            </button>
+          {loading ? (
+            <Loader2 className="w-5 h-5 animate-spin text-apple-blue" />
+          ) : (
+            <Search className="w-5 h-5" />
           )}
+        </button>
+
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && handleManualSearch()}
+          placeholder="Search standards (e.g. Solar PV module, TMT bars, HDPE pipes)..."
+          className="w-full bg-transparent text-sm md:text-base text-white placeholder-white/35 focus:outline-none"
+        />
+
+        {query && (
           <button
-            onClick={() => onSearch()}
-            disabled={loading || !query.trim()}
-            className="px-3.5 py-1.5 bg-apple-blue hover:bg-apple-blue/80 disabled:opacity-40 text-white rounded-xl text-xs font-semibold transition-all shadow-md shadow-apple-blue/20"
+            onClick={() => clearQuery(setQuery)}
+            className="p-1 rounded-full text-white/40 hover:text-white hover:bg-white/10 transition-colors mr-2"
+            title="Clear"
           >
-            {loading ? "Searching..." : "Search"}
+            <X className="w-4 h-4" />
           </button>
-          <button 
-            onClick={() => setIsRecording(!isRecording)}
-            className={clsx("p-2 rounded-xl transition-colors", isRecording ? "text-apple-mint bg-apple-mint/20" : "text-white/40 hover:text-white/90 hover:bg-white/10")}
-            title="Voice input"
-          >
-            <Mic className="w-4 h-4" />
-          </button>
-        </div>
+        )}
+
+        <button
+          onClick={handleManualSearch}
+          disabled={loading || !query.trim()}
+          className="px-4 py-1.5 bg-apple-blue hover:bg-apple-blue/80 disabled:opacity-40 text-white rounded-xl text-xs font-semibold transition-all shadow-md shadow-apple-blue/20 shrink-0"
+        >
+          {loading ? "Searching..." : "Search"}
+        </button>
+      </div>
+
+      <div className="text-center mt-2">
+        <span className="text-[11px] text-white/30 font-medium">
+          Auto-searches 2s after typing or press Enter
+        </span>
       </div>
     </div>
   );
 };
+export default SpotlightSearch;

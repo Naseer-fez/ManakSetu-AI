@@ -1,6 +1,5 @@
 import React from "react";
 import { AlertTriangle, CheckCircle2, ShieldAlert, ChevronRight } from "lucide-react";
-import { AudioPlayerButton } from "./AudioPlayerButton";
 import type { StandardRecommendation } from "../types";
 
 interface RecommendationCardProps {
@@ -17,7 +16,6 @@ export const RecommendationCard: React.FC<RecommendationCardProps> = ({
   const std = rec.standard;
   const isQco = std.mandatory_qco.is_mandatory;
   const isSuperseded = Boolean(rec.deprecation_warning);
-  const audioText = `${std.is_code} ${std.title}. ${std.scope}. ${rec.certification_alert}`;
 
   return (
     <div
@@ -79,10 +77,14 @@ export const RecommendationCard: React.FC<RecommendationCardProps> = ({
               Voluntary
             </span>
           )}
-          <AudioPlayerButton text={audioText} label="Listen" />
+          {std.amendments.length > 0 && (
+            <span className="text-[11px] text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded-lg">
+              {std.amendments.length} Amendments
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1 text-blue-400 font-medium text-[11px]">
-          <span>View Spec</span>
+          <span>View Spec & Graph</span>
           <ChevronRight className="w-3.5 h-3.5" />
         </div>
       </div>

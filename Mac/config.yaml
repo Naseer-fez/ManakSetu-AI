@@ -7,7 +7,7 @@ llm:
   model_path: "models/llm/Qwen2.5-7B-Instruct-Q4_K_M.gguf"
   lora_path: "models/llm/final_adapter.gguf"
   lora_scale: 1.0
-  n_ctx: 32768
+  n_ctx: 8192 # Optimal for 16GB Mac; increase to 16384 or 32768 on 32GB+ models
   n_gpu_layers: -1 # Will utilize Metal Performance Shaders (MPS) on Mac
   temperature: 0.2
   max_tokens: 2048
@@ -22,4 +22,4 @@ reranker:
 
 vectordb:
   path: "vectordb/data/chroma"
-  collection_name: "bis_standards_collection"
+  collection_name: "document_chunks"

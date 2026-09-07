@@ -101,3 +101,25 @@ async def test_stt_failure_sends_error_event() -> None:
     error_calls = [c for c in ws.send_json.call_args_list if c[0][0].get("event") == "error"]
     assert len(error_calls) >= 1
     assert error_calls[0][0][0]["component"] == "stt"
+
+
+@pytest.mark.asyncio
+async def test_empty_stt_sends_response_complete() -> None:
+    ws = _make_mock_ws()
+    mock_stt = _make_mock_stt("")  # Empty transcription
+    mock_llm = MagicMock()
+    mock_llm.is_loaded.return_value = True
+    ws.receive = AsyncMock(side_effect=[
+        {"type": "websocket.receive", "bytes": b"silence"},
+        {"type": "websocket.disconnect"},
+    ])
+    with patch("backend.engine.voice.live_voice_session.get_stt_provider", return_value=mock_stt), \
+         patch("backend.engine.voice.live_voice_session.get_tts_provider", return_value=_make_mock_tts()), \
+         patch("backend.engine.voice.live_voice_session.get_llm_provider", return_value=mock_llm):
+        from backend.engine.voice.live_voice_session import LiveVoiceSession
+        session = LiveVoiceSession(ws)
+        await session.run()
+
+    complete_calls = [c for c in ws.send_json.call_args_list if c[0][0].get("event") == "response_complete"]
+    assert len(complete_calls) == 1
+    assert complete_calls[0][0][0]["full_text"] == ""

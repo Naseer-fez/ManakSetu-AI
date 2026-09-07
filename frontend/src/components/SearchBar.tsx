@@ -1,6 +1,5 @@
 import React from "react";
 import { Search, Sparkles, X } from "lucide-react";
-import { VoiceInputButton } from "./VoiceInputButton";
 
 interface SearchBarProps {
   query: string;
@@ -27,11 +26,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     { label: "Fire Extinguisher ABC", query: "Portable ABC powder fire extinguisher" },
   ];
 
-  const handleVoiceTranscription = (text: string) => {
-    setQuery(text);
-    onSearch(text);
-  };
-
   return (
     <div className="w-full space-y-3">
       <div className="relative flex items-center bg-slate-900/90 border border-slate-700/80 rounded-2xl p-1.5 shadow-xl shadow-black/40 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
@@ -43,7 +37,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && onSearch()}
-          placeholder="Describe product or speak voice query (e.g. '11kV transformer', 'सौर पैनल')..."
+          placeholder="Describe product or paste specs (e.g. '11kV transformer', 'सौर पैनल', 'IS 1786')..."
           className="w-full bg-transparent px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none"
         />
         {query && (
@@ -51,9 +45,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             <X className="w-4 h-4" />
           </button>
         )}
-        <div className="mx-1">
-          <VoiceInputButton onTranscription={handleVoiceTranscription} disabled={loading} />
-        </div>
         <select
           value={division}
           onChange={(e) => setDivision(e.target.value)}

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { Copy, Check, Download, FileCode, Shield } from "lucide-react";
+import { Copy, Check, Download, FileCode, Shield, Sparkles, Loader2 } from "lucide-react";
 import type { StandardRecommendation } from "../types";
+import { generateTenderClauses } from "../services/api.service";
 
 interface ClauseGeneratorViewProps {
   rec: StandardRecommendation;
@@ -8,16 +9,30 @@ interface ClauseGeneratorViewProps {
 
 export const ClauseGeneratorView: React.FC<ClauseGeneratorViewProps> = ({ rec }) => {
   const [copied, setCopied] = useState(false);
+  const [clauseText, setClauseText] = useState(rec.sample_tender_clause);
+  const [generating, setGenerating] = useState(false);
   const std = rec.standard;
 
+  const handleGenerateAi = async () => {
+    try {
+      setGenerating(true);
+      const res = await generateTenderClauses(std.is_code);
+      if (res.clause_text) setClauseText(res.clause_text);
+    } catch {
+      // Retain fallback clause if AI generation fails
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const handleCopy = () => {
-    navigator.clipboard.writeText(rec.sample_tender_clause);
+    navigator.clipboard.writeText(clauseText);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleDownload = () => {
-    const blob = new Blob([rec.sample_tender_clause], { type: "text/plain;charset=utf-8" });
+    const blob = new Blob([clauseText], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -37,6 +52,14 @@ export const ClauseGeneratorView: React.FC<ClauseGeneratorViewProps> = ({ rec })
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={handleGenerateAi}
+            disabled={generating}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 transition-all disabled:opacity-50"
+          >
+            {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-emerald-400" />}
+            <span>{generating ? "AI Drafting..." : "AI Generate"}</span>
+          </button>
+          <button
             onClick={handleCopy}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all"
           >
@@ -54,7 +77,7 @@ export const ClauseGeneratorView: React.FC<ClauseGeneratorViewProps> = ({ rec })
       </div>
 
       <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/80 font-mono text-[11px] leading-relaxed text-slate-300 whitespace-pre-wrap select-all">
-        {rec.sample_tender_clause}
+        {clauseText}
       </div>
 
       <div className="flex items-start gap-2 text-xs text-amber-300 bg-amber-950/20 border border-amber-900/40 p-3 rounded-xl">

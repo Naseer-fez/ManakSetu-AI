@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { VoiceControlsToolbar } from "./VoiceControlsToolbar";
 import { VoiceChatThread } from "./VoiceChatThread";
 import { PushToTalkButton } from "./PushToTalkButton";
@@ -11,6 +11,7 @@ export const VoiceAssistantView: React.FC = () => {
   const [mode, setMode] = useState<"fast" | "thinking">("thinking");
   const [language, setLanguage] = useState<string>("auto");
   const [status, setStatus] = useState<VoiceStatusResponse | null>(null);
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     fetchVoiceStatus().then(setStatus).catch(() => setStatus(null));
@@ -37,9 +38,17 @@ export const VoiceAssistantView: React.FC = () => {
         timestamp: new Date().toLocaleTimeString(),
       };
       setMessages((prev) => [...prev, userMsg, aiMsg]);
-      // Auto-play the audio response
+      // Auto-play the audio response cleanly
       if (resp.audio_url) {
-        new Audio(resp.audio_url).play().catch(() => {});
+        if (activeAudioRef.current) {
+          activeAudioRef.current.pause();
+        }
+        const audio = new Audio(resp.audio_url);
+        activeAudioRef.current = audio;
+        audio.play().catch(() => {});
+        audio.onended = () => {
+          if (activeAudioRef.current === audio) activeAudioRef.current = null;
+        };
       }
     } catch {
       const errorMsg: VoiceChatMessage = {

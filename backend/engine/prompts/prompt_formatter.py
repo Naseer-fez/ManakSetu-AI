@@ -1,9 +1,9 @@
 """Safe prompt context builder and template formatters for BIS-SpecAI."""
 from __future__ import annotations
 from typing import Any
-from backend.engine.prompts.evaluation_prompt import EVALUATION_PROMPT_TEMPLATE
-from backend.engine.prompts.tender_clause_prompt import TENDER_CLAUSE_PROMPT_TEMPLATE
-from backend.engine.prompts.testing_matrix_prompt import TESTING_MATRIX_PROMPT_TEMPLATE
+from backend.config.llm_config import LLM_PROMPTS
+
+
 from backend.models.standard_model import IndianStandard
 
 NOT_PROVIDED = "NOT_PROVIDED"
@@ -83,12 +83,12 @@ def safe_inject(template: str, context: dict[str, str]) -> str:
 
 
 def format_evaluation_prompt(**kwargs: Any) -> str:
-    return safe_inject(EVALUATION_PROMPT_TEMPLATE, build_prompt_context(**kwargs))
+    return safe_inject(LLM_PROMPTS["EVALUATION_PROMPT_TEMPLATE"], build_prompt_context(**kwargs))
 
 
 def format_testing_matrix_prompt(**kwargs: Any) -> str:
-    return safe_inject(TESTING_MATRIX_PROMPT_TEMPLATE, build_prompt_context(**kwargs))
+    return safe_inject(LLM_PROMPTS["TESTING_MATRIX_PROMPT_TEMPLATE"], build_prompt_context(**kwargs))
 
 
 def format_tender_clause_prompt(**kwargs: Any) -> str:
-    return safe_inject(TENDER_CLAUSE_PROMPT_TEMPLATE, build_prompt_context(**kwargs))
+    return safe_inject(LLM_PROMPTS["TENDER_CLAUSE_PROMPT_TEMPLATE"], build_prompt_context(**kwargs))

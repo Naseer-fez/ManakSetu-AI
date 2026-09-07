@@ -1,20 +1,18 @@
 """Live voice WebSocket session handler coordinating STT, LLM streaming, and TTS."""
 from __future__ import annotations
 
-import base64
 import json
 import time
 from typing import Any
-
 from fastapi import WebSocket
 from backend.config.settings import VoiceSettings, app_settings
 from backend.engine.llm_service import get_llm_provider
+from backend.engine.voice.live_voice_streamer import LiveVoiceStreamer
 from backend.engine.voice.provider_factory import get_stt_provider, get_tts_provider
 from backend.engine.voice.sentence_buffer import SentenceBuffer
 from backend.logger.app_logger import get_logger
 from backend.models.voice_live_contracts import (
-    ErrorEvent, LlmChunkEvent, ResponseCompleteEvent,
-    SessionStatusEvent, SttFinalEvent, TtsAudioEvent,
+    ErrorEvent, ResponseCompleteEvent, SessionStatusEvent, SttFinalEvent,
 )
 
 logger = get_logger("engine.voice.live_session")
@@ -30,104 +28,71 @@ class LiveVoiceSession:
         self._tts = get_tts_provider()
         self._llm = get_llm_provider("local")
         self._buffer = SentenceBuffer(cfg.live_sentence_delimiters)
+        self._streamer = LiveVoiceStreamer(self._llm, self._tts, self._buffer, self._send_event)
         self._history: list[dict[str, str]] = []
         self._max_turns: int = cfg.live_max_turns
         self._turn_index: int = 0
 
     async def run(self) -> None:
         """Main event loop — receive messages and dispatch handlers."""
+        logger.info("Live voice session started")
         await self._send_event(SessionStatusEvent(
-            status="ready",
-            stt_available=self._stt.is_available(),
+            status="ready", stt_available=self._stt.is_available(),
             tts_available=self._tts.is_available(),
-            llm_available=self._llm.is_loaded() if hasattr(self._llm, 'is_loaded') else True,
+            llm_available=self._llm.is_loaded() if hasattr(self._llm, "is_loaded") else True,
         ))
         while True:
             message = await self._ws.receive()
-            msg_type = message.get("type", "")
-            if msg_type == "websocket.disconnect":
+            if message.get("type") == "websocket.disconnect":
+                logger.info("Live voice WebSocket disconnected")
                 break
-            if "bytes" in message and message["bytes"]:
+            if message.get("bytes"):
                 await self._handle_audio(message["bytes"])
-            elif "text" in message and message["text"]:
+            elif message.get("text"):
                 await self._handle_control(message["text"])
 
     async def _handle_audio(self, audio_bytes: bytes) -> None:
         """Process a speech segment: STT -> LLM stream -> TTS stream."""
         t0 = time.perf_counter()
+        logger.info(f"Received live audio chunk ({len(audio_bytes)} bytes)")
         try:
             stt_result = await self._stt.transcribe(audio_bytes)
         except (RuntimeError, OSError, ValueError) as exc:
+            logger.error(f"STT transcription failed: {exc}")
             await self._send_event(ErrorEvent(message=str(exc), component="stt"))
             return
+
+        text = stt_result.text.strip()
+        logger.info(f"STT transcribed: '{text}' (lang={stt_result.language}, conf={stt_result.confidence:.2f})")
         await self._send_event(SttFinalEvent(
-            text=stt_result.text, language=stt_result.language,
+            text=text, language=stt_result.language,
             confidence=stt_result.confidence, duration_sec=stt_result.duration_sec,
         ))
-        if not stt_result.text.strip():
+
+        if not text:
+            elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            logger.warning("Empty transcription; concluding turn without LLM query.")
+            await self._send_event(ResponseCompleteEvent(full_text="", turn_index=self._turn_index, processing_time_ms=elapsed_ms))
             return
-        full_text = await self._stream_llm_tts(stt_result.text, language=stt_result.language or "en")
-        self._history.append({"role": "user", "content": stt_result.text})
-        self._history.append({"role": "assistant", "content": full_text})
-        self._trim_history()
+
+        full_text = await self._streamer.stream_llm_tts(text, language=stt_result.language or "en")
+        self._history.extend([{"role": "user", "content": text}, {"role": "assistant", "content": full_text}])
+        self._history = self._history[-self._max_turns * 2:]
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
-        await self._send_event(ResponseCompleteEvent(
-            full_text=full_text, turn_index=self._turn_index, processing_time_ms=elapsed_ms,
-        ))
+        await self._send_event(ResponseCompleteEvent(full_text=full_text, turn_index=self._turn_index, processing_time_ms=elapsed_ms))
         self._turn_index += 1
 
-    async def _stream_llm_tts(self, query: str, language: str = "en") -> str:
-        """Stream LLM tokens -> sentence buffer -> TTS -> WebSocket."""
-        prompt = f"User Query: {query}\n\nProvide a rapid, precise answer."
-        system_prompt = "You are a fast Indian Standards assistant. Answer concisely."
-        full_text = ""
-        chunk_idx = 0
-        try:
-            async for token in self._llm.generate_text_stream(prompt, system_prompt, max_tokens=256, use_grammar=False):
-                if token.startswith("{"):
-                    continue
-                full_text += token
-                for sentence in self._buffer.add_token(token):
-                    await self._send_event(LlmChunkEvent(text=sentence, chunk_index=chunk_idx))
-                    await self._send_tts(sentence, chunk_idx, language=language)
-                    chunk_idx += 1
-        except (RuntimeError, OSError, ValueError) as exc:
-            await self._send_event(ErrorEvent(message=str(exc), component="llm"))
-        remaining = self._buffer.flush()
-        if remaining:
-            await self._send_event(LlmChunkEvent(text=remaining, chunk_index=chunk_idx))
-            await self._send_tts(remaining, chunk_idx, language=language)
-        return full_text
-
-    async def _send_tts(self, sentence: str, chunk_idx: int, language: str = "en") -> None:
-        """Synthesize a sentence and send TTS audio over WebSocket."""
-        try:
-            tts_result = await self._tts.synthesize_sentence(sentence, language=language)
-            audio_b64 = base64.b64encode(tts_result.audio_bytes).decode("ascii")
-            await self._send_event(TtsAudioEvent(data=audio_b64, sample_rate=tts_result.sample_rate, chunk_index=chunk_idx))
-        except (RuntimeError, OSError, ValueError) as exc:
-            await self._send_event(ErrorEvent(message=str(exc), component="tts"))
-
     async def _send_event(self, event: Any) -> None:
-        """Send a Pydantic event model as JSON over the WebSocket."""
         await self._ws.send_json(event.model_dump())
 
-    def _trim_history(self) -> None:
-        """Keep only the last N turns in rolling conversation window."""
-        max_items = self._max_turns * 2
-        if len(self._history) > max_items:
-            self._history = self._history[-max_items:]
-
     async def _handle_control(self, raw: str) -> None:
-        """Handle JSON control messages from client."""
         try:
             data = json.loads(raw)
+            if data.get("action") == "ping":
+                await self._ws.send_json({"event": "pong"})
+            elif data.get("action") == "reset":
+                self._history.clear()
+                self._buffer.reset()
+                self._turn_index = 0
         except json.JSONDecodeError:
-            return
-        action = data.get("action", "")
-        if action == "ping":
-            await self._ws.send_json({"event": "pong"})
-        elif action == "reset":
-            self._history.clear()
-            self._buffer.reset()
-            self._turn_index = 0
+            pass

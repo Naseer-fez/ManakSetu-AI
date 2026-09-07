@@ -17,6 +17,7 @@ ai_engine:
   embedding_model_name: "llm/paraphrase-multilingual-MiniLM-L12-v2"
   multilingual_model_name: "llm/paraphrase-multilingual-MiniLM-L12-v2"
   similarity_threshold: 0.35
+  min_relevance_score: 0.35
   top_k_recommendations: 5
   hybrid_alpha: 0.65
   enable_gpu: true
@@ -30,7 +31,7 @@ llm:
   provider: "local_gguf"
   model_name: "Qwen2.5-7B-Instruct-Q4_K_M"
   model_path: "llm/Qwen2.5-7B-Instruct-Q4_K_M.gguf"
-  n_ctx: 4096
+  n_ctx: 32768
   n_threads: 4
   n_gpu_layers: 18
   chat_format: "chatml"
@@ -53,11 +54,11 @@ cache:
 
 voice:
   stt_provider: "faster_whisper"
-  stt_model_path: "llm/faster-whisper-small"
+  stt_model_path: "llm/faster-whisper-tiny"
   stt_device: "cpu"
   stt_compute_type: "int8"
-  stt_beam_size: 1
-  stt_task: "translate"
+  stt_task: "transcribe"
+  stt_initial_prompt: "BIS Bureau of Indian Standards voice conversation. Hello, Hi."
   tts_provider: "mms_vits"
   tts_eng_model_path: "llm/mms-tts-eng"
   tts_hin_model_path: "llm/mms-tts-hin"
@@ -93,12 +94,14 @@ vector_database:
 
 distributed_reasoning:
   mac_available: true
-  mac_endpoint: "http://localhost:5000/reason"
-  local_preprocessor_model: "llm/qwen2.5-3b-instruct.Q4_K_M-finetuned.gguf"
-  fast_model_n_ctx: 65536
+  mac_endpoint: "http://10.118.237.94:5008/reason"
+  local_preprocessor_model: "llm/Qwen2.5-3B-Instruct-Q4_K_M.gguf"
+  fast_model_n_ctx: 16384
+  thinking_model_n_ctx: 16384
   fast_model_n_gpu_layers: 36
-  fast_model_kv_quant: "q4_0"
-  fast_model_rope_freq_scale: 0.5
+  fast_model_kv_quant: "q8_0"
+  fast_model_rope_freq_scale: 1.0
+  mac_timeout_sec: 25.0
 
 web_search:
   enabled: true

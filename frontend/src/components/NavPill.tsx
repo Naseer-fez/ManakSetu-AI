@@ -10,9 +10,10 @@ interface NavPillProps {
   icon: LucideIcon;
   active: boolean;
   onClick: () => void;
+  hasData?: boolean;
 }
 
-export const NavPill: React.FC<NavPillProps> = ({ label, icon: Icon, active, onClick }) => {
+export const NavPill: React.FC<NavPillProps> = ({ label, icon: Icon, active, onClick, hasData }) => {
   return (
     <button
       onClick={onClick}
@@ -31,7 +32,12 @@ export const NavPill: React.FC<NavPillProps> = ({ label, icon: Icon, active, onC
           transition={{ type: "spring", stiffness: 400, damping: 30 }}
         />
       )}
-      <Icon className={clsx("w-4 h-4", active && "text-apple-blue")} />
+      <div className="relative">
+        <Icon className={clsx("w-4 h-4", active && "text-apple-blue")} />
+        {hasData && (
+          <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-apple-mint animate-pulse" />
+        )}
+      </div>
       <span className="hidden sm:inline">{label}</span>
     </button>
   );

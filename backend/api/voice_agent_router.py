@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
+from backend.config.paths import TTS_CACHE_DIR
 from backend.config.settings import app_settings
 from backend.engine.voice.provider_factory import get_stt_provider, get_tts_provider
 from backend.engine.voice.voice_agent_orchestrator import VoiceAgentOrchestrator
@@ -62,3 +65,14 @@ async def voice_status_endpoint() -> VoiceStatusResponse:
         tts_device=cfg.tts_device,
         default_language=cfg.default_language,
     )
+
+
+@router.get("/audio/{filename}")
+async def get_voice_audio(filename: str) -> FileResponse:
+    """Stream cached WAV audio with strict audio/wav MIME type and path protection."""
+    safe_name = Path(filename).name
+    file_path = TTS_CACHE_DIR / safe_name
+    if not file_path.is_file():
+        raise HTTPException(status_code=404, detail="Audio file not found")
+    return FileResponse(path=str(file_path), media_type="audio/wav", filename=safe_name)
+

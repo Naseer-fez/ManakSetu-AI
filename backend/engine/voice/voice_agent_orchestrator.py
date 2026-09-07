@@ -7,6 +7,7 @@ from backend.config.paths import TTS_CACHE_DIR
 from backend.engine.hybrid_retriever import HybridRetriever
 from backend.engine.llm_orchestrator import LlmOrchestrator
 from backend.engine.llm_service import get_llm_service
+from backend.engine.voice.audio_utils import clean_voice_text
 from backend.engine.voice.provider_factory import get_stt_provider, get_tts_provider
 from backend.ingestion.standards_loader import StandardsLoader
 from backend.logger.app_logger import get_logger
@@ -29,6 +30,8 @@ class VoiceAgentOrchestrator:
 
     def _persist_audio(self, wav_bytes: bytes) -> str:
         """Write generated audio to cache directory and return relative endpoint URL."""
+        if not wav_bytes:
+            return ""
         TTS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
         filename = f"voice_{uuid.uuid4().hex[:12]}.wav"
         out_path = TTS_CACHE_DIR / filename
@@ -72,7 +75,8 @@ class VoiceAgentOrchestrator:
             )
 
         llm_answer, evidences = await self._execute_llm(transcribed, mode, pdf_text, chat_history)
-        tts_res = await self._tts.synthesize(llm_answer, language=det_lang)
+        tts_text = clean_voice_text(llm_answer)
+        tts_res = await self._tts.synthesize(tts_text or llm_answer, language=det_lang)
         audio_url = self._persist_audio(tts_res.audio_bytes)
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
 
