@@ -1,0 +1,136 @@
+"""Hybrid semantic and lexical dual-index retriever for Indian Standards backed by ChromaDB."""
+from __future__ import annotations
+import re
+from backend.config.settings import app_settings
+from backend.engine.chroma_hydrator import hydrate_standard_from_chroma
+from backend.engine.embedding_service import EmbeddingService
+from backend.engine.bm25_engine import BM25Engine
+from backend.ingestion.standards_loader import StandardsLoader
+from backend.logger.app_logger import get_logger
+from backend.models.recommendation_model import DocumentChunkEvidence
+from backend.models.standard_model import IndianStandard
+from backend.vectordb.search_service import VectorDbSearchService
+from backend.engine.query_expander import QueryExpander
+from backend.engine.reranker_service import RerankerService
+
+logger = get_logger("engine.semantic_retriever")
+
+
+class SemanticRetriever:
+    """Combines ChromaDB dense retrieval with multithreaded BM25 lexical matching."""
+
+    def __init__(self, loader: StandardsLoader | None = None, embed_svc: EmbeddingService | None = None) -> None:
+        self._loader = loader or StandardsLoader()
+        self._embed_svc = embed_svc or EmbeddingService()
+        self._vectordb = VectorDbSearchService()
+        self._standards = self._loader.get_all_standards()
+        self._expander = QueryExpander()
+        self._reranker = RerankerService()
+        
+        # Initialize Multithreaded BM25 Engine
+        self._bm25 = BM25Engine()
+        self._bm25.build_index(self._standards)
+
+    def search(
+        self,
+        query: str,
+        division: str | None = None,
+        top_k: int = 5,
+        min_relevance_score: float | None = None,
+    ) -> list[tuple[IndianStandard, float, list[str]]]:
+        """Perform Stage 1: Macro Standard Discovery."""
+        if not query.strip():
+            return []
+            
+        # Task 1.1: Query Expansion
+        expanded_query = self._expander.expand(query)
+        
+        results_map: dict[str, tuple[IndianStandard, float, list[str]]] = {}
+        alpha = app_settings.ai_engine.hybrid_alpha
+        logger.info(f"SemanticRetriever: Macro search for '{expanded_query}' (Division: {division or 'All'})")
+        
+        pool_size = getattr(app_settings.ai_engine, "reranker_candidate_pool", 25)
+
+        # 1. Dense retrieval via ChromaDB
+        try:
+            hits = self._vectordb.search(query=expanded_query, division=division, top_k=pool_size)
+            for hit in hits:
+                std = hydrate_standard_from_chroma(hit, self._loader)
+                dense_score = float(hit.get("similarity_score", 0.0))
+                hybrid_score = alpha * dense_score
+                results_map[std.is_code] = (std, hybrid_score, [f"ChromaDB Vector match ({dense_score:.2f})"])
+        except (KeyError, ValueError, Exception) as exc:
+            logger.warning(f"[FALLBACK] ChromaDB search error ({type(exc).__name__}) -> proceeding with BM25 only")
+
+        # 2. Sparse / Lexical retrieval via Multithreaded BM25
+        bm25_hits = self._bm25.search(query=expanded_query, top_k=pool_size, division=division)
+        
+        # Normalize BM25 scores roughly for hybrid weighting
+        max_bm25 = max([score for _, score in bm25_hits], default=1.0)
+        max_bm25 = max_bm25 if max_bm25 > 0 else 1.0
+
+        for std, bm25_score in bm25_hits:
+            norm_score = bm25_score / max_bm25
+            reasons = [f"BM25 Lexical match ({norm_score:.2f})"]
+            
+            code_num = re.sub(r"[^\d]", "", std.is_code)
+            if code_num and code_num in query:
+                norm_score = max(norm_score, 0.95)
+                reasons.append(f"Direct match on standard code {std.is_code}")
+
+            if std.is_code in results_map:
+                _, ex_sc, ex_r = results_map[std.is_code]
+                new_score = ex_sc + ((1.0 - alpha) * norm_score)
+                results_map[std.is_code] = (std, new_score, list(set(ex_r + reasons)))
+            else:
+                if norm_score > 0.45:
+                    results_map[std.is_code] = (std, norm_score, reasons)
+
+        ranked = sorted(results_map.values(), key=lambda item: item[1], reverse=True)
+        
+        # Task 1.2: Cross-Encoder Reranking
+        candidates = ranked[:pool_size]
+        final_ranked = self._reranker.rerank(query, candidates, top_k)
+        
+        if min_relevance_score is not None and min_relevance_score > 0.0:
+            surviving = [item for item in final_ranked if item[1] >= min_relevance_score]
+            return surviving[:top_k]
+        return final_ranked[:top_k]
+
+    def search_document_evidence(self, query: str, top_k: int = 5) -> list[DocumentChunkEvidence]:
+        """Perform Stage 2: Micro Evidence & Deep Clause Retrieval from PDF chunks."""
+        expanded_query = self._expander.expand(query)
+        raw_chunks = self._vectordb.search_document_chunks(query=expanded_query, top_k=top_k)
+        evidences: list[DocumentChunkEvidence] = []
+        for c in raw_chunks:
+            evidences.append(DocumentChunkEvidence(
+                chunk_id=c.get("chunk_id", ""), doc_id=c.get("doc_id", ""),
+                file_name=c.get("file_name", ""), page_number=c.get("page_number", 1),
+                total_pages=c.get("total_pages", 1), folder_category=c.get("folder_category", "Standard"),
+                snippet=c.get("snippet", ""), relevance_score=c.get("similarity_score", 0.0),
+            ))
+        return evidences
+
+    def search_with_evidence(
+        self,
+        query: str,
+        division: str | None = None,
+        top_k: int = 5,
+        top_k_chunks: int = 5,
+        min_relevance_score: float | None = None,
+    ) -> tuple[list[tuple[IndianStandard, float, list[str]]], list[DocumentChunkEvidence]]:
+        """Perform unified Dual-Index Retrieval unifying macro standards and micro PDF clause excerpts."""
+        standards = self.search(
+            query=query, division=division, top_k=top_k, min_relevance_score=min_relevance_score
+        )
+        if not standards:
+            return [], []
+        evidences = self.search_document_evidence(query=query, top_k=top_k_chunks)
+        codes = [s[0].is_code for s in standards]
+        for ev in evidences:
+            for c in codes:
+                code_digits = re.sub(r"[^\d]", "", c)
+                if code_digits and (c.lower() in ev.file_name.lower() or code_digits in ev.file_name.lower() or c.lower() in ev.snippet.lower()):
+                    ev.matched_standard = c
+                    break
+        return standards, evidences

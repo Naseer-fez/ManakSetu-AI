@@ -27,6 +27,13 @@ export function useAiChatHandler(propPdfText?: string) {
       },
     ]);
     setAttachedFile(null);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem("bis_specai_chat_history");
+      } catch {
+        // ignore storage errors
+      }
+    }
   };
 
   const handleSend = async (customQuery?: string) => {
@@ -42,7 +49,8 @@ export function useAiChatHandler(propPdfText?: string) {
     const activePdf = isPdfConnectedToAiChat
       ? propPdfText || remPdfText || undefined
       : undefined;
-    const chatHistory = messages.map((m) => ({ role: m.role, content: m.text }));
+    const boundedMessages = messages.slice(-6);
+    const chatHistory = boundedMessages.map((m) => ({ role: m.role, content: m.text }));
     const userLabel = fileToSend ? `${q}\n\n📎 *[Attached: ${fileToSend.name}]*` : q;
     setMessages((prev) => [...prev, { role: "user", text: userLabel }, { role: "assistant", text: "" }]);
 

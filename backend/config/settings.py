@@ -62,13 +62,14 @@ class AiEngineSettings(BaseModel):
     reranker_model: str = str(RERANKER_MODEL_PATH)
     reranker_candidate_pool: int = 25
     domain_expansions_file: str = str(DOMAIN_EXPANSIONS_PATH)
+    traditional: bool = False
 
 
 class LlmSettings(BaseModel):
     provider: str = "local_gguf"
     model_name: str = "Qwen2.5-7B-Instruct-Q4_K_M"
     model_path: str = str(DEFAULT_GGUF_MODEL_PATH)
-    n_ctx: int = 32768
+    n_ctx: int = 4096
     n_threads: int = 4
     n_gpu_layers: int = 24
     chat_format: str = "chatml"

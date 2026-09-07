@@ -4,6 +4,8 @@ export type FindingStatus = "critical" | "warning" | "passed" | "needs_verificat
 
 export type FindingResolution = "pending" | "applied" | "ignored";
 
+export type FindingFilterTab = "all" | FindingStatus | "ignored";
+
 export interface DocumentSource {
   workspaceId?: string;
   name: string;

@@ -1,5 +1,5 @@
 import type { Editor } from "@tiptap/react";
-import type { ComplianceFindingItem, FindingStatus } from "@/components/workspace_desk/types";
+import type { ComplianceFindingItem, FindingFilterTab, FindingStatus } from "@/components/workspace_desk/types";
 
 export function formatFileSize(bytes: number): string {
   if (bytes <= 0) return "0 B";
@@ -16,10 +16,22 @@ export function countWords(text: string): number {
 
 export function filterFindings(
   findings: ComplianceFindingItem[],
-  statusFilter: "all" | FindingStatus
+  statusFilter: FindingFilterTab
 ): ComplianceFindingItem[] {
-  if (statusFilter === "all") return findings;
-  return findings.filter((f) => f.status === statusFilter);
+  if (statusFilter === "ignored") {
+    return findings.filter((f) => f.resolution === "ignored");
+  }
+  const activeFindings = findings.filter((f) => f.resolution !== "ignored");
+  if (statusFilter === "all") return activeFindings;
+  return activeFindings.filter((f) => f.status === statusFilter);
+}
+
+export function getIgnoredCount(findings: ComplianceFindingItem[]): number {
+  return findings.filter((f) => f.resolution === "ignored").length;
+}
+
+export function getActiveCount(findings: ComplianceFindingItem[]): number {
+  return findings.filter((f) => f.resolution !== "ignored").length;
 }
 
 export function generateAiPromptForFinding(finding: ComplianceFindingItem): string {

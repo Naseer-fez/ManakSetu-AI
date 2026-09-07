@@ -14,6 +14,7 @@ storage:
   upload_dir: "backend/data/uploads"
 
 ai_engine:
+  traditional: false
   embedding_model_name: "llm/paraphrase-multilingual-MiniLM-L12-v2"
   multilingual_model_name: "llm/paraphrase-multilingual-MiniLM-L12-v2"
   similarity_threshold: 0.35
@@ -31,7 +32,7 @@ llm:
   provider: "local_gguf"
   model_name: "Qwen2.5-7B-Instruct-Q4_K_M"
   model_path: "llm/Qwen2.5-7B-Instruct-Q4_K_M.gguf"
-  n_ctx: 32768
+  n_ctx: 4096
   n_threads: 4
   n_gpu_layers: 18
   chat_format: "chatml"
@@ -96,8 +97,8 @@ distributed_reasoning:
   mac_available: true
   mac_endpoint: "http://10.118.237.94:5008/reason"
   local_preprocessor_model: "llm/Qwen2.5-3B-Instruct-Q4_K_M.gguf"
-  fast_model_n_ctx: 16384
-  thinking_model_n_ctx: 16384
+  fast_model_n_ctx: 4096
+  thinking_model_n_ctx: 32768
   fast_model_n_gpu_layers: 36
   fast_model_kv_quant: "q8_0"
   fast_model_rope_freq_scale: 1.0

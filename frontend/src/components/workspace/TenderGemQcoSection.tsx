@@ -4,7 +4,7 @@ import { useRemembrance } from "@/context/RemembranceContext";
 import type { ExtractedLineItem } from "@/types";
 
 export const TenderGemQcoSection: React.FC<{ items: ExtractedLineItem[] }> = ({ items }) => {
-  const { setGemSimItem } = useRemembrance();
+  const { setGemSimItem, setActiveTab } = useRemembrance();
   const [filter, setFilter] = useState("");
 
   const itemsWithMeta = items.map((item) => {
@@ -68,7 +68,10 @@ export const TenderGemQcoSection: React.FC<{ items: ExtractedLineItem[] }> = ({ 
             </div>
 
             <button
-              onClick={() => setGemSimItem(item)}
+              onClick={() => {
+                setGemSimItem(item);
+                setActiveTab("gem");
+              }}
               className="px-3 py-1 rounded bg-blue-50 dark:bg-blue-950/40 hover:bg-gov-blue dark:hover:bg-blue-700 text-gov-blue dark:text-blue-400 hover:text-white dark:hover:text-white text-[11px] font-semibold border border-blue-200 dark:border-blue-900/50 transition-colors shrink-0"
               title="Preload this tender line item into GeM Simulator tab"
             >

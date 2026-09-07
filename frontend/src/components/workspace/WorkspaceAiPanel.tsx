@@ -6,6 +6,8 @@ import type { ChatMessage } from "@/components/ChatMessageItem";
 import { ChatMessageItem } from "@/components/ChatMessageItem";
 import { WorkspaceAiLoading } from "@/components/workspace/WorkspaceAiLoading";
 import { WorkspaceAiInput } from "@/components/workspace/WorkspaceAiInput";
+import { WorkspaceAiConfirmationCard } from "@/components/workspace/WorkspaceAiConfirmationCard";
+import { useRemembrance } from "@/context/RemembranceContext";
 
 interface WorkspaceAiPanelProps {
   onClose: () => void;
@@ -20,36 +22,26 @@ interface WorkspaceAiPanelProps {
 }
 
 export const WorkspaceAiPanel: React.FC<WorkspaceAiPanelProps> = ({
-  onClose,
-  fileName,
-  messages,
-  onSendMessage,
-  onClearChat,
-  loading,
-  isReady,
-  mode,
-  setMode,
+  onClose, fileName, messages, onSendMessage, onClearChat, loading, isReady, mode, setMode
 }) => {
+  const { pendingAiAction, setPendingAiAction } = useRemembrance();
   const bottomRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading, pendingAiAction]);
 
   const prompts = ["Explain this clause.", "Why was this marked non-compliant?", "Summarize the audit findings."];
 
+  const handleConfirmAction = () => {
+    if (!pendingAiAction) return;
+    const prompt = `Analyze statutory finding for ${pendingAiAction.category} (${pendingAiAction.severity} Severity):\n${pendingAiAction.message}\n\nPlease formulate a BIS-compliant corrective action, required testing clauses, and specification adjustments to resolve this issue.`;
+    setPendingAiAction(null);
+    onSendMessage(prompt);
+  };
+
   return (
-    <motion.aside
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 20 }}
-      transition={{ duration: 0.2 }}
-      className="flex flex-col h-full min-h-0 bg-white dark:bg-[#111927] rounded-lg border border-gov-border dark:border-slate-800 shadow-sm overflow-hidden"
-    >
+    <motion.aside initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.2 }} className="flex flex-col h-full min-h-0 bg-white dark:bg-[#111927] rounded-lg border border-gov-border dark:border-slate-800 shadow-sm overflow-hidden">
       <div className="px-4 py-2.5 border-b border-gov-border dark:border-slate-800 bg-gov-offwhite dark:bg-slate-900/50 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="w-7 h-7 rounded bg-blue-100 dark:bg-blue-950 text-gov-blue dark:text-blue-300 flex items-center justify-center shrink-0">
-            <Sparkles className="w-3.5 h-3.5" />
-          </div>
+          <div className="w-7 h-7 rounded bg-blue-100 dark:bg-blue-950 text-gov-blue dark:text-blue-300 flex items-center justify-center shrink-0"><Sparkles className="w-3.5 h-3.5" /></div>
           <div className="min-w-0">
             <h3 className="text-xs font-bold text-gov-navy dark:text-white tracking-tight flex items-center gap-1.5">
               <span>AI Copilot</span>
@@ -77,7 +69,10 @@ export const WorkspaceAiPanel: React.FC<WorkspaceAiPanelProps> = ({
             {messages.map((m, i) => (
               <ChatMessageItem key={i} message={m} loading={loading && i === messages.length - 1 && m.role === "assistant"} />
             ))}
-            {messages.length === 0 && (
+            {pendingAiAction && (
+              <WorkspaceAiConfirmationCard action={pendingAiAction} onConfirm={handleConfirmAction} onCancel={() => setPendingAiAction(null)} />
+            )}
+            {messages.length === 0 && !pendingAiAction && (
               <div className="pt-2 space-y-2">
                 <span className="text-[10px] font-bold text-gov-navy dark:text-gray-200 uppercase tracking-wider block">Suggested Inquiries</span>
                 <div className="flex flex-col gap-1.5">

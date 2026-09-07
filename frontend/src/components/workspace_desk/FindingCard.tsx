@@ -26,7 +26,7 @@ export const FindingCard: React.FC<FindingCardProps> = ({
         finding.resolution === "applied"
           ? "bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800"
           : finding.resolution === "ignored"
-          ? "bg-gray-50/60 dark:bg-slate-900/40 border-gray-200 dark:border-slate-800 opacity-60"
+          ? "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/40"
           : "bg-white dark:bg-slate-900/80 border-gov-border dark:border-slate-800 hover:border-gray-400 dark:hover:border-slate-700 shadow-sm"
       }`}
     >
@@ -35,14 +35,21 @@ export const FindingCard: React.FC<FindingCardProps> = ({
           <span className="text-[11px] font-mono text-gov-text-secondary dark:text-gray-400 block truncate">
             {finding.clauseLocation}
           </span>
-          <h4 className="text-xs font-bold text-gov-navy dark:text-white mt-0.5">{finding.category}</h4>
+          <div className="flex items-center gap-2 mt-0.5">
+            <h4 className="text-xs font-bold text-gov-navy dark:text-white">{finding.category}</h4>
+            {finding.resolution === "ignored" && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 font-semibold">
+                Ignored
+              </span>
+            )}
+          </div>
         </div>
         <FindingStatusBadge status={finding.status} size="sm" />
       </div>
 
       <p className="text-xs text-gov-text dark:text-gray-300 leading-relaxed mb-3">{finding.explanation}</p>
 
-      {finding.suggestedCorrection && (
+      {finding.suggestedCorrection && finding.resolution !== "ignored" && (
         <div className="rounded bg-gov-offwhite dark:bg-[#0c1626] border border-gov-border dark:border-slate-800 p-2.5 mb-3 text-xs">
           <span className="text-[10px] uppercase font-bold tracking-wider text-gov-green dark:text-emerald-400 block mb-1">
             Suggested Statutory Correction
@@ -70,3 +77,4 @@ export const FindingCard: React.FC<FindingCardProps> = ({
   );
 };
 
+export default FindingCard;

@@ -247,6 +247,16 @@ async def chat_workspace_stream(workspace_id: str, req: ChatRequest) -> Streamin
     return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
+@router.delete("/{workspace_id}/chat")
+async def clear_workspace_chat(workspace_id: str) -> dict[str, str]:
+    """Clear conversation history for a workspace."""
+    _require_workspace(workspace_id)
+    if await store.get_workspace(workspace_id) is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    await store.clear_messages(workspace_id)
+    return {"status": "cleared", "workspace_id": workspace_id}
+
+
 
 @router.post("/{workspace_id}/export")
 async def export_workspace(workspace_id: str, req: ExportRequest) -> Response:

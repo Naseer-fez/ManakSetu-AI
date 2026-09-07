@@ -4,6 +4,8 @@ import {
   formatFileSize,
   countWords,
   filterFindings,
+  getIgnoredCount,
+  getActiveCount,
   generateAiPromptForFinding,
   getStatusLabel,
 } from "../workspace.utils.ts";
@@ -28,8 +30,10 @@ test("filterFindings filters by status or returns all", () => {
     { id: "1", status: "critical", resolution: "pending", clauseLocation: "1.1", explanation: "", suggestedCorrection: "", category: "" },
     { id: "2", status: "warning", resolution: "pending", clauseLocation: "1.2", explanation: "", suggestedCorrection: "", category: "" },
     { id: "3", status: "passed", resolution: "pending", clauseLocation: "1.3", explanation: "", suggestedCorrection: "", category: "" },
+    { id: "4", status: "critical", resolution: "ignored", clauseLocation: "1.4", explanation: "", suggestedCorrection: "", category: "" },
   ];
 
+  // "all" should return only active (non-ignored) items
   assert.strictEqual(filterFindings(sample, "all").length, 3);
   const criticalOnly = filterFindings(sample, "critical");
   assert.strictEqual(criticalOnly.length, 1);
@@ -38,6 +42,11 @@ test("filterFindings filters by status or returns all", () => {
   const warningOnly = filterFindings(sample, "warning");
   assert.strictEqual(warningOnly.length, 1);
   assert.strictEqual(warningOnly[0].id, "2");
+
+  // "ignored" should return only ignored items
+  const ignoredOnly = filterFindings(sample, "ignored");
+  assert.strictEqual(ignoredOnly.length, 1);
+  assert.strictEqual(ignoredOnly[0].id, "4");
 });
 
 test("generateAiPromptForFinding formats prompt with clause and explanation", () => {
@@ -62,4 +71,15 @@ test("getStatusLabel returns proper display titles", () => {
   assert.strictEqual(getStatusLabel("warning"), "Warning");
   assert.strictEqual(getStatusLabel("passed"), "Passed");
   assert.strictEqual(getStatusLabel("needs_verification"), "Needs Verification");
+});
+
+test("getIgnoredCount and getActiveCount calculate accurately", () => {
+  const sample = [
+    { id: "1", status: "critical", resolution: "pending" },
+    { id: "2", status: "warning", resolution: "ignored" },
+    { id: "3", status: "passed", resolution: "applied" },
+    { id: "4", status: "critical", resolution: "ignored" },
+  ];
+  assert.strictEqual(getIgnoredCount(sample), 2);
+  assert.strictEqual(getActiveCount(sample), 2);
 });

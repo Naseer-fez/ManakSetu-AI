@@ -248,8 +248,8 @@ class LlmOrchestrator:
             )
 
         history_summary = ""
-        thinking_ctx = getattr(app_settings.distributed_reasoning, "thinking_model_n_ctx", None) or app_settings.llm.n_ctx
-        summary_threshold = int(thinking_ctx * 0.75)
+        summary_threshold = 1000
+        bounded_history = [m for m in chat_history if m][-6:] if chat_history else []
         if chat_history:
             if refresh_context or count_history_tokens(chat_history) > summary_threshold:
                 history_summary = await self.summarize_chat_history(chat_history)
@@ -264,9 +264,9 @@ class LlmOrchestrator:
         mac_prompt = f"User Query: {query}\n"
         if history_summary:
             mac_prompt += f"\n[Conversation History Summary]:\n{history_summary}\n"
-        elif chat_history:
-            raw_history = "\n".join(f"{m.get('role', 'user').capitalize()}: {m.get('content', '')}" for m in chat_history)
-            mac_prompt += f"\n[Conversation History]:\n{raw_history}\n"
+        elif bounded_history:
+            raw_history = "\n".join(f"{m.get('role', 'user').capitalize()}: {m.get('content', '')}" for m in bounded_history)
+            mac_prompt += f"\n[Conversation History (Recent Turns)]:\n{raw_history}\n"
         if synthesized_context:
             mac_prompt += f"\n[Synthesized Specification Context]:\n{synthesized_context}\n"
         if ws_text:

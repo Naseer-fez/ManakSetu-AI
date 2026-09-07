@@ -5,7 +5,6 @@ import { WorkspaceLoadingView } from "@/components/workspace/WorkspaceLoadingVie
 import { WorkspaceLayout } from "@/components/workspace/WorkspaceLayout";
 import { WorkspaceFloatingAiButton } from "@/components/workspace/WorkspaceFloatingAiButton";
 import { WorkspaceToolbar } from "@/components/workspace/WorkspaceToolbar";
-import { IndependentIssueChatModal } from "@/components/workspace/IndependentIssueChatModal";
 
 interface WorkspaceViewProps {
   setPdfText?: (text: string) => void;
@@ -41,7 +40,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ setPdfText, title,
             exportBusy={ws.exportBusy}
             aiMessages={ws.aiMessages}
             onSendAiMessage={ws.handleSendMessage}
-            onClearAiChat={() => ws.setAiMessages([])}
+            onClearAiChat={ws.clearChat}
             aiLoading={ws.aiLoading}
             aiReady={!ws.busy && !!ws.analysis}
             aiMode={ws.aiMode}
@@ -52,7 +51,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ setPdfText, title,
         {!ws.aiOpen && ws.file && !ws.busy && (
           <WorkspaceFloatingAiButton onClick={() => ws.setAiOpen(true)} />
         )}
-        <IndependentIssueChatModal />
       </div>
     </div>
   );

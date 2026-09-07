@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { Upload, FileText, Play } from "lucide-react";
-import { WorkspaceUploadDropzone } from "@/components/workspace_desk/WorkspaceUploadDropzone";
+import { Upload, FileText, ArrowRight } from "lucide-react";
+import { WorkspaceUploadButton } from "@/components/workspace_desk/WorkspaceUploadButton";
 import { WorkspacePasteBox } from "@/components/workspace_desk/WorkspacePasteBox";
 
 interface WorkspaceEmptyStateProps {
@@ -25,8 +25,9 @@ Section 7.0, Clause 7.1.2: Packaging and identification bundles shall carry batc
       {/* Mode Selector */}
       <div className="flex items-center gap-2 border-b border-gov-border dark:border-slate-700 pb-3">
         <button
+          type="button"
           onClick={() => setMode("upload")}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded text-xs font-semibold transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded text-xs font-semibold transition-all cursor-pointer ${
             mode === "upload"
               ? "bg-gov-blue text-white shadow-sm"
               : "text-gov-text-secondary dark:text-gray-400 hover:text-gov-navy dark:hover:text-white hover:bg-gov-offwhite dark:hover:bg-slate-800"
@@ -35,8 +36,9 @@ Section 7.0, Clause 7.1.2: Packaging and identification bundles shall carry batc
           <Upload className="w-3.5 h-3.5" /> Upload Document (.pdf, .docx, .txt)
         </button>
         <button
+          type="button"
           onClick={() => setMode("paste")}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded text-xs font-semibold transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded text-xs font-semibold transition-all cursor-pointer ${
             mode === "paste"
               ? "bg-gov-blue text-white shadow-sm"
               : "text-gov-text-secondary dark:text-gray-400 hover:text-gov-navy dark:hover:text-white hover:bg-gov-offwhite dark:hover:bg-slate-800"
@@ -48,29 +50,27 @@ Section 7.0, Clause 7.1.2: Packaging and identification bundles shall carry batc
 
       {/* Input Form Body */}
       {mode === "upload" ? (
-        <WorkspaceUploadDropzone onFileSelect={onFileSelect} />
+        <WorkspaceUploadButton onFileSelect={onFileSelect} />
       ) : (
-        <WorkspacePasteBox
-          text={pastedText}
-          onChange={setPastedText}
-          onUseSampleText={() => setPastedText(sampleTenderText)}
-        />
+        <div className="space-y-4">
+          <WorkspacePasteBox
+            text={pastedText}
+            onChange={setPastedText}
+            onUseSampleText={() => setPastedText(sampleTenderText)}
+          />
+          <div className="flex justify-end pt-2 border-t border-gray-100 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => pastedText.trim() && onTextSubmit(pastedText)}
+              disabled={!pastedText.trim()}
+              className="px-5 py-2 rounded-lg bg-gov-blue hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+            >
+              <span>Audit Pasted Clauses</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
       )}
-
-      {/* Run Audit Button */}
-      <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-slate-800">
-        <span className="text-xs text-gov-text-secondary dark:text-gray-400">
-          Upload a tender document or paste technical clauses to initiate statutory compliance audit.
-        </span>
-        <button
-          onClick={() => mode === "paste" && pastedText.trim() && onTextSubmit(pastedText)}
-          disabled={mode === "upload" || !pastedText.trim()}
-          className="px-4 py-2 rounded bg-gov-blue hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-xs flex items-center gap-2 shadow-sm transition-all"
-        >
-          <Play className="w-3.5 h-3.5 fill-white" />
-          <span>Run Audit</span>
-        </button>
-      </div>
     </div>
   );
 };

@@ -2,7 +2,6 @@ import React from "react";
 import { useWorkspaceDesk } from "@/components/workspace_desk/useWorkspaceDesk";
 import { WorkspaceHeader } from "@/components/workspace_desk/WorkspaceHeader";
 import { WorkspaceEmptyState } from "@/components/workspace_desk/WorkspaceEmptyState";
-import { WorkspaceUploadedState } from "@/components/workspace_desk/WorkspaceUploadedState";
 import { WorkspaceAuditingState } from "@/components/workspace_desk/WorkspaceAuditingState";
 import { WorkspaceReviewDesk } from "@/components/workspace_desk/WorkspaceReviewDesk";
 
@@ -34,17 +33,19 @@ export const WorkspaceDesk: React.FC<WorkspaceDeskProps> = ({ onSetPdfText }) =>
       />
 
       <main className="flex-1 min-h-0 flex flex-col justify-center">
-        {ws.isExtracting && (
-          <div className="max-w-xl mx-auto mb-3 w-full rounded-lg border border-gov-blue/30 bg-gov-blue-light px-4 py-3 text-xs text-gov-blue font-medium">
-            Extracting headings, paragraphs, and tables from the PDF…
-          </div>
-        )}
         {ws.stage === "error" && (
           <div className="max-w-xl mx-auto w-full bg-white dark:bg-[#111927] rounded-lg border border-gov-red/30 dark:border-gov-red/40 p-6 text-center space-y-3 shadow-sm">
-            <p className="text-sm text-gov-red dark:text-rose-400 font-medium">{ws.error || "The workspace could not load this document."}</p>
-            <button onClick={ws.handleResetWorkspace} className="px-4 py-2 rounded bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs text-gov-navy dark:text-gray-200 font-semibold border border-gov-border dark:border-slate-700">Try another document</button>
+            <p className="text-sm text-gov-red dark:text-rose-400 font-medium">{ws.error || "The workspace could not audit this document."}</p>
+            <button
+              type="button"
+              onClick={ws.handleResetWorkspace}
+              className="px-4 py-2 rounded bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs text-gov-navy dark:text-gray-200 font-semibold border border-gov-border dark:border-slate-700 cursor-pointer"
+            >
+              Try another document
+            </button>
           </div>
         )}
+
         {ws.stage === "empty" && (
           <WorkspaceEmptyState
             onFileSelect={handleDocumentSelect}
@@ -52,20 +53,12 @@ export const WorkspaceDesk: React.FC<WorkspaceDeskProps> = ({ onSetPdfText }) =>
           />
         )}
 
-        {ws.stage === "uploaded" && ws.document && (
-          <WorkspaceUploadedState
-            document={ws.document}
-            onRemove={ws.handleResetWorkspace}
-            onReplace={ws.handleResetWorkspace}
-            onRunAudit={() => ws.setStage("auditing")}
-          />
-        )}
-
         {ws.stage === "auditing" && ws.document && (
           <WorkspaceAuditingState
             documentName={ws.document.name}
-            onCancel={() => ws.setStage("uploaded")}
-            onComplete={ws.handleRunAudit}
+            isReady={ws.isAuditReady}
+            onCancel={ws.handleResetWorkspace}
+            onComplete={ws.handleCompleteAudit}
           />
         )}
 
@@ -73,16 +66,19 @@ export const WorkspaceDesk: React.FC<WorkspaceDeskProps> = ({ onSetPdfText }) =>
           <WorkspaceReviewDesk
             document={ws.document}
             findings={ws.findings}
+            revisedPdfUrl={ws.revisedPdfUrl}
+            isCompilingPdf={ws.isCompilingPdf}
             onApplyFinding={ws.handleApplyFinding}
             onCorrectionChange={ws.handleCorrectionChange}
             onIgnoreFinding={ws.handleIgnoreFinding}
             onResetFinding={ws.handleResetFinding}
+            onRestoreAllIgnored={ws.handleRestoreAllIgnored}
             onAskAiForFinding={ws.handleAskAiForFinding}
             aiMessages={ws.aiMessages}
             aiInput={ws.aiInput}
             setAiInput={ws.setAiInput}
             onSendAiMessage={ws.handleSendAiMessage}
-            onClearAiChat={() => ws.setAiMessages([])}
+            onClearAiChat={ws.handleClearAiChat}
             onEditorReady={ws.setEditor}
             onEditorChange={ws.handleEditorChange}
             onCreatePdf={ws.handleCreatePdf}

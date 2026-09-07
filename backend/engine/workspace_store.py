@@ -86,7 +86,7 @@ class WorkspaceStore:
         with self._connect() as conn:
             conn.execute("INSERT INTO messages(id,workspace_id,role,content) VALUES(?,?,?,?)", (message_id, workspace_id, role, content))
 
-    async def get_messages(self, workspace_id: str, limit: int = 20) -> list[dict[str, str]]:
+    async def get_messages(self, workspace_id: str, limit: int = 6) -> list[dict[str, str]]:
         """Retrieve recent conversation history in chronological order."""
         if not workspace_id or limit <= 0:
             return []
@@ -102,6 +102,16 @@ class WorkspaceStore:
                 return [{"role": str(row["role"]), "content": str(row["content"])} for row in rows]
         except sqlite3.Error:
             return []
+
+    async def clear_messages(self, workspace_id: str) -> None:
+        """Clear all conversation history for a workspace."""
+        if not workspace_id:
+            return
+        await asyncio.to_thread(self._delete_messages, workspace_id)
+
+    def _delete_messages(self, workspace_id: str) -> None:
+        with self._connect() as conn:
+            conn.execute("DELETE FROM messages WHERE workspace_id=?", (workspace_id,))
 
     async def get_workspace(self, workspace_id: str) -> dict[str, object] | None:
         return await asyncio.to_thread(self._read_workspace, workspace_id)

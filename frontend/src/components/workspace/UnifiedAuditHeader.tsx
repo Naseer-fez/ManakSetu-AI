@@ -17,7 +17,6 @@ interface UnifiedAuditHeaderProps {
 }
 
 export const UnifiedAuditHeader: React.FC<UnifiedAuditHeaderProps> = ({
-  viewMode = "both",
   fileName,
   fileSize,
   activeView,
@@ -46,39 +45,26 @@ export const UnifiedAuditHeader: React.FC<UnifiedAuditHeaderProps> = ({
         </label>
       </div>
 
-      {/* Center View Mode Switcher: [ 📋 Audit Matrix ] [ 📄 Original PDF ] */}
-      {viewMode === "both" && (
-        <div className="flex items-center bg-gov-offwhite dark:bg-slate-800/80 p-1 rounded border border-gov-border dark:border-slate-700 shrink-0">
-          <button
-            onClick={() => onViewChange("audit")}
-            className={clsx(
-              "flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold transition-all",
-              activeView === "audit" ? "bg-gov-blue text-white shadow-sm" : "text-gov-text-secondary dark:text-gray-400 hover:text-gov-navy dark:hover:text-white"
-            )}
-          >
-            <BarChart3 className="w-3.5 h-3.5" />
-            <span>Audit Matrix</span>
-          </button>
-          <button
-            onClick={() => onViewChange("pdf")}
-            className={clsx(
-              "flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold transition-all",
-              activeView === "pdf" ? "bg-gov-navy dark:bg-blue-600 text-white shadow-sm" : "text-gov-text-secondary dark:text-gray-400 hover:text-gov-navy dark:hover:text-white"
-            )}
-          >
-            <Eye className="w-3.5 h-3.5" />
-            <span>Original PDF</span>
-          </button>
-        </div>
-      )}
-
-      {/* Right Controls: Export Buttons & AI Assistant Trigger */}
+      {/* Right Controls: Export Buttons, PDF Viewer Toggle & AI Assistant Trigger */}
       <div className="flex items-center gap-2 shrink-0">
-        <button onClick={() => onExport("pdf")} disabled={exportBusy} className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-white dark:bg-slate-800 hover:bg-gov-offwhite dark:hover:bg-slate-700 disabled:opacity-50 text-gov-text dark:text-gray-200 text-xs font-medium transition-colors border border-gov-border dark:border-slate-700">
+        <button onClick={() => onExport("pdf")} disabled={exportBusy} className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-white dark:bg-slate-800 hover:bg-gov-offwhite dark:hover:bg-slate-700 disabled:opacity-50 text-gov-text dark:text-gray-200 text-xs font-medium transition-colors border border-gov-border dark:border-slate-700" title="Export Audit as PDF">
           <Download className="w-3 h-3" /> PDF
         </button>
-        <button onClick={() => onExport("docx")} disabled={exportBusy} className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-white dark:bg-slate-800 hover:bg-gov-offwhite dark:hover:bg-slate-700 disabled:opacity-50 text-gov-text dark:text-gray-200 text-xs font-medium transition-colors border border-gov-border dark:border-slate-700">
+        <button onClick={() => onExport("docx")} disabled={exportBusy} className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-white dark:bg-slate-800 hover:bg-gov-offwhite dark:hover:bg-slate-700 disabled:opacity-50 text-gov-text dark:text-gray-200 text-xs font-medium transition-colors border border-gov-border dark:border-slate-700" title="Export Audit as Word">
           <Download className="w-3 h-3" /> Word
+        </button>
+        <button
+          onClick={() => onViewChange(activeView === "pdf" ? "audit" : "pdf")}
+          className={clsx(
+            "flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-semibold transition-all border",
+            activeView === "pdf"
+              ? "bg-gov-blue text-white border-gov-blue shadow-sm"
+              : "bg-white dark:bg-slate-800 hover:bg-gov-offwhite dark:hover:bg-slate-700 text-gov-text dark:text-gray-200 border-gov-border dark:border-slate-700"
+          )}
+          title={activeView === "pdf" ? "Switch back to Audit Matrix" : "Open inline PDF Viewer"}
+        >
+          {activeView === "pdf" ? <BarChart3 className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+          <span>{activeView === "pdf" ? "Audit View" : "PDF Viewer"}</span>
         </button>
         <button
           onClick={onToggleAi}

@@ -20,6 +20,13 @@ export function useAssistantChatDrawer(propPdfText?: string) {
     setMessages([
       { role: "assistant", text: "Chat cleared. Ask me anything about Indian Standards or tender specifications." },
     ]);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem("bis_specai_chat_history");
+      } catch {
+        // ignore storage errors
+      }
+    }
   };
 
   const handleRefresh = async () => {
@@ -36,7 +43,8 @@ export function useAssistantChatDrawer(propPdfText?: string) {
   const handleSend = async () => {
     if (!input.trim() || loading) return;
     const q = input; setInput(""); setLoading(true); setSpeaking(true);
-    const chatHistory = messages.map(m => ({ role: m.role, content: m.text }));
+    const boundedMessages = messages.slice(-6);
+    const chatHistory = boundedMessages.map(m => ({ role: m.role, content: m.text }));
     setMessages(p => [...p, { role: "user", text: q }, { role: "assistant", text: "" }]);
 
     try {

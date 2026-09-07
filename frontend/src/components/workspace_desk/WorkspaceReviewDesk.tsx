@@ -9,9 +9,12 @@ import { FinalActionsBar } from "@/components/workspace_desk/FinalActionsBar";
 interface WorkspaceReviewDeskProps {
   document: DocumentSource;
   findings: ComplianceFindingItem[];
+  revisedPdfUrl?: string | null;
+  isCompilingPdf?: boolean;
   onApplyFinding: (id: string) => void;
   onIgnoreFinding: (id: string) => void;
   onResetFinding: (id: string) => void;
+  onRestoreAllIgnored?: () => void;
   onAskAiForFinding: (finding: ComplianceFindingItem) => void;
   onCorrectionChange: (id: string, value: string) => void;
   aiMessages: WorkspaceChatMessage[];
@@ -32,7 +35,13 @@ export const WorkspaceReviewDesk: React.FC<WorkspaceReviewDeskProps> = (props) =
       {/* 3-Column Desktop Layout / Stacked on Mobile & Tablet */}
       <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3 overflow-y-auto lg:overflow-hidden">
         <div className="lg:col-span-3 h-80 lg:h-full min-h-0">
-          <LiveDocumentPanel document={props.document} onEditorReady={props.onEditorReady} onEditorChange={props.onEditorChange} />
+          <LiveDocumentPanel
+            document={props.document}
+            revisedPdfUrl={props.revisedPdfUrl}
+            isCompilingPdf={props.isCompilingPdf}
+            onEditorReady={props.onEditorReady}
+            onEditorChange={props.onEditorChange}
+          />
         </div>
 
         <div className="lg:col-span-5 h-[480px] lg:h-full min-h-0">
@@ -41,6 +50,7 @@ export const WorkspaceReviewDesk: React.FC<WorkspaceReviewDeskProps> = (props) =
             onApplyFinding={props.onApplyFinding}
             onIgnoreFinding={props.onIgnoreFinding}
             onResetFinding={props.onResetFinding}
+            onRestoreAllIgnored={props.onRestoreAllIgnored}
             onAskAiForFinding={props.onAskAiForFinding}
             onCorrectionChange={props.onCorrectionChange}
           />
@@ -62,3 +72,5 @@ export const WorkspaceReviewDesk: React.FC<WorkspaceReviewDeskProps> = (props) =
     </div>
   );
 };
+
+export default WorkspaceReviewDesk;

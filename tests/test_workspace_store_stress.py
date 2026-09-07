@@ -91,3 +91,20 @@ async def test_workspace_store_sql_injection_resilience(tmp_path: Path) -> None:
     res = await store.get_messages(ws_id, limit=5)
     assert len(res) == 1
     assert res[0]["content"] == "Alive after injection attempts"
+
+
+@pytest.mark.asyncio
+async def test_workspace_store_clear_messages(tmp_path: Path) -> None:
+    """Verify clear_messages removes only the target workspace messages."""
+    store = WorkspaceStore(tmp_path)
+    ws1 = await store.create("WS 1")
+    ws2 = await store.create("WS 2")
+    await store.add_message(ws1, "user", "Hello WS 1")
+    await store.add_message(ws2, "user", "Hello WS 2")
+
+    assert len(await store.get_messages(ws1)) == 1
+    assert len(await store.get_messages(ws2)) == 1
+
+    await store.clear_messages(ws1)
+    assert len(await store.get_messages(ws1)) == 0
+    assert len(await store.get_messages(ws2)) == 1

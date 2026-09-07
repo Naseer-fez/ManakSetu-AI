@@ -84,6 +84,11 @@ export async function askWorkspace(workspaceId: string, question: string, docume
   return res.json();
 }
 
+export async function clearWorkspaceChat(workspaceId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/workspaces/${workspaceId}/chat`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to clear workspace chat");
+}
+
 export async function exportWorkspace(workspaceId: string, format: "pdf" | "docx", templateId?: string): Promise<Blob> {
   const template = { template_id: templateId || "uploaded", name: "Uploaded source", source: "officer-uploaded", format: format === "pdf" ? "static_pdf" : "docx", approved: false, fields: [] };
   const res = await fetch(`${API_BASE}/workspaces/${workspaceId}/export`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ format, template, values: {}, allow_draft: true }) });

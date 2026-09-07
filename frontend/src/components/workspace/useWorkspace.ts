@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { analyzeWorkspace, askWorkspace, createWorkspace, exportWorkspace } from "@/services/api.service";
+import { useState, useEffect } from "react";
+import { analyzeWorkspace, askWorkspace, clearWorkspaceChat, createWorkspace, exportWorkspace } from "@/services/api.service";
 import { useRemembrance } from "@/context/RemembranceContext";
 import type { WorkspaceAnalysis } from "@/types";
 import type { ChatMessage } from "@/components/ChatMessageItem";
@@ -12,6 +12,10 @@ export function useWorkspace(tabId: string, onPdfTextLoaded?: (t: string) => voi
   const [aiOpen, setAiOpen] = useState(false);
   const [aiMode, setAiMode] = useState<"fast" | "heavy">("heavy");
   const [aiLoading, setAiLoading] = useState(false);
+
+  useEffect(() => {
+    if (rem.pendingAiAction) setAiOpen(true);
+  }, [rem.pendingAiAction]);
 
   const tabData = rem.tabs[tabId] || {
     file: null, pdfBlobUrl: null, pdfText: "", analysis: null, chatMessages: []
@@ -79,7 +83,21 @@ export function useWorkspace(tabId: string, onPdfTextLoaded?: (t: string) => voi
     } finally { setAiLoading(false); }
   };
 
+  const clearChat = async () => {
+    setAiMessages([]);
+    if (workspaceId) {
+      try {
+        await clearWorkspaceChat(workspaceId);
+      } catch {
+        // ignore workspace chat clear failure
+      }
+    }
+  };
+
   const resetSession = () => {
+    if (workspaceId) {
+      clearWorkspaceChat(workspaceId).catch(() => {});
+    }
     rem.clearTabData(tabId);
     setAiOpen(false);
   };
@@ -87,6 +105,6 @@ export function useWorkspace(tabId: string, onPdfTextLoaded?: (t: string) => voi
   return {
     workspaceId, file, pdfBlobUrl, analysis, busy, exportBusy,
     aiOpen, setAiOpen, aiMode, setAiMode, aiLoading, aiMessages, setAiMessages,
-    handleFileSelected, handleExport, handleSendMessage, resetSession,
+    handleFileSelected, handleExport, handleSendMessage, resetSession, clearChat,
   };
 }

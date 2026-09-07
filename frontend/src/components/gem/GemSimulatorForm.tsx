@@ -1,6 +1,7 @@
 import React from "react";
 import { ShoppingCart, Send, Download, Loader2 } from "lucide-react";
 import type { ExtractedLineItem } from "@/types";
+import { GemSimulatorInfoPopover } from "@/components/gem/GemSimulatorInfoPopover";
 
 export interface GemFormData {
   id: string;
@@ -29,14 +30,17 @@ export const GemSimulatorForm: React.FC<GemSimulatorFormProps> = ({
   loading,
 }) => (
   <div className="bg-white dark:bg-[#111927] border border-gov-border dark:border-slate-800 rounded-lg p-6 shadow-sm space-y-5">
-    <div>
-      <h2 className="text-base font-bold text-gov-navy dark:text-white flex items-center gap-2">
-        <ShoppingCart className="w-5 h-5 text-gov-blue dark:text-blue-400" />
-        Government e-Marketplace (GeM) Simulator
-      </h2>
-      <p className="text-xs text-gov-text-secondary dark:text-gray-400 mt-0.5">
-        Simulate how the GeM portal validates buyer specifications and enforces compulsory BIS standards.
-      </p>
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-gov-border dark:border-slate-800">
+      <div>
+        <h2 className="text-base font-bold text-gov-navy dark:text-white flex items-center gap-2">
+          <ShoppingCart className="w-5 h-5 text-gov-blue dark:text-blue-400" />
+          Government e-Marketplace (GeM) Simulator
+        </h2>
+        <p className="text-xs text-gov-text-secondary dark:text-gray-400 mt-0.5">
+          Simulate how the GeM portal validates buyer specifications and enforces compulsory BIS standards.
+        </p>
+      </div>
+      <GemSimulatorInfoPopover />
     </div>
 
     {tenderItems.length > 0 && (

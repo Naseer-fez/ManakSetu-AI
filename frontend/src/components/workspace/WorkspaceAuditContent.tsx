@@ -1,6 +1,7 @@
 import React from "react";
 import { CheckCircle2, AlertTriangle, Layers, BookOpen } from "lucide-react";
 import type { TenderAnalysisReport } from "@/types";
+import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 
 interface WorkspaceAuditContentProps {
   report?: TenderAnalysisReport | null;
@@ -43,8 +44,10 @@ export const WorkspaceAuditContent: React.FC<WorkspaceAuditContentProps> = ({ re
         </div>
         {report.items.map(item => (
           <div key={item.item_id} className="p-3.5 rounded-lg bg-white dark:bg-slate-800/80 border border-gov-border dark:border-slate-700 text-xs space-y-2 shadow-sm">
-            <div className="font-bold text-gov-navy dark:text-white">Item #{item.item_id}: {item.product_title}</div>
-            <p className="text-gov-text-secondary dark:text-gray-300 text-[11px] leading-relaxed">{item.spec_summary}</p>
+            <div className="font-bold text-gov-navy dark:text-white">Item #{item.item_id}: {item.product_title.replace(/^\*+\s*|\*+/g, "").trim()}</div>
+            <div className="text-gov-text-secondary dark:text-gray-300 text-[11px] leading-relaxed">
+              <MarkdownRenderer content={item.spec_summary} className="text-[11px] leading-relaxed" />
+            </div>
             {item.recommended_standards.length > 0 && (
               <div className="p-2.5 rounded bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 text-gov-navy dark:text-blue-300 flex items-start gap-2 text-[11px]">
                 <CheckCircle2 className="w-3.5 h-3.5 text-gov-green dark:text-emerald-400 shrink-0 mt-0.5" />

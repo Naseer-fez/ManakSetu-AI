@@ -31,7 +31,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = (props) => {
   const { viewMode = "both", file, pdfBlobUrl, analysis, aiOpen, onToggleAi, onCloseAi, onReplaceFile, onExport, exportBusy,
     aiMessages, onSendAiMessage, onClearAiChat, aiLoading, aiReady, aiMode, setAiMode } = props;
 
-  const [aiPercent, setAiPercent] = useState<number>(60);
+  const [aiPercent, setAiPercent] = useState<number>(30);
   const containerRef = useRef<HTMLDivElement>(null);
   const handleDragStart = useLayoutDrag(containerRef, setAiPercent);
 
@@ -60,7 +60,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = (props) => {
         />
       )}
 
-      {/* AI Copilot: Default at least 60% of horizontal space */}
+      {/* AI Copilot: Default 30% of horizontal space */}
       <AnimatePresence mode="popLayout">
         {aiOpen && (
           <motion.div

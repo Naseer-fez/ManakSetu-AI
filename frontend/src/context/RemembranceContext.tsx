@@ -1,14 +1,16 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import type { WorkspaceAnalysis, ExtractedLineItem, ChatMessage, TabData, IssueModalTarget } from "@/types";
-import type { RemembranceContextType } from "@/context/remembrance.types";
+import type { RemembranceContextType, PendingAiAction } from "@/context/remembrance.types";
 
-export type { IssueModalTarget, TabData, ChatMessage };
+export type { IssueModalTarget, TabData, ChatMessage, PendingAiAction };
 
 const CHAT_STORAGE_KEY = "bis_specai_chat_history";
 
 const RemembranceContext = createContext<RemembranceContextType | undefined>(undefined);
 
 export const RemembranceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [activeTab, setActiveTab] = useState<string>("recommend");
+  const [pendingAiAction, setPendingAiAction] = useState<PendingAiAction | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [pdfText, setPdfText] = useState<string>("");
@@ -76,6 +78,7 @@ export const RemembranceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   return (
     <RemembranceContext.Provider
       value={{
+        activeTab, setActiveTab, pendingAiAction, setPendingAiAction,
         file, pdfBlobUrl, pdfText, analysis, setTenderData, clearTenderData,
         tabs, setTabData, clearTabData, isPdfConnectedToAiChat, setIsPdfConnectedToAiChat,
         chatMessages, setChatMessages, chatInput, setChatInput, chatMode, setChatMode,

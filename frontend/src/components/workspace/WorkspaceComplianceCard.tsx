@@ -2,6 +2,7 @@ import React from "react";
 import { CheckCircle2, AlertTriangle, Download, FileCheck } from "lucide-react";
 import { clsx } from "clsx";
 import type { WorkspaceAnalysis } from "@/types";
+import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 
 interface WorkspaceComplianceCardProps {
   analysis: WorkspaceAnalysis;
@@ -60,10 +61,12 @@ export const WorkspaceComplianceCard: React.FC<WorkspaceComplianceCardProps> = (
                 <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-0.5">
-                    <span className="font-bold text-gov-navy dark:text-white truncate">{item.category}</span>
+                    <span className="font-bold text-gov-navy dark:text-white truncate">{item.category.replace(/^\*+\s*|\*+/g, "").trim()}</span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-gov-offwhite dark:bg-slate-700 text-gov-text-secondary dark:text-gray-300 uppercase font-semibold border border-gov-border dark:border-slate-600">{item.severity}</span>
                   </div>
-                  <p className="text-gov-text dark:text-gray-300 leading-relaxed text-[11px]">{item.message}</p>
+                  <div className="text-gov-text dark:text-gray-300 leading-relaxed text-[11px]">
+                    <MarkdownRenderer content={item.message} className="text-[11px] leading-relaxed" />
+                  </div>
                 </div>
               </div>
             ))}

@@ -10,11 +10,11 @@ import { KnowledgeGraphView } from "@/components/graph/KnowledgeGraphView";
 import { QcoExplorerView } from "@/components/qco/QcoExplorerView";
 import { GemSimulatorView } from "@/components/gem/GemSimulatorView";
 import { AssistantChatDrawer } from "@/components/AssistantChatDrawer";
-import { RemembranceProvider } from "@/context/RemembranceContext";
+import { useRemembrance, RemembranceProvider } from "@/context/RemembranceContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 
 const MainLayout: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<string>("recommend");
+  const { activeTab, setActiveTab } = useRemembrance();
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const [, setPdfText] = useState<string>("");
 

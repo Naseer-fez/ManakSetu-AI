@@ -10,7 +10,7 @@ export const TenderRadarView: React.FC<TenderRadarViewProps> = ({ setPdfText }) 
   return (
     <WorkspaceView
       tabId="tender"
-      viewMode="audit"
+      viewMode="both"
       setPdfText={setPdfText}
       title="Tender Radar & Statutory Compliance"
       icon={FileCheck}

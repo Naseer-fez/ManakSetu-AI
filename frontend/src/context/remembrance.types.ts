@@ -1,6 +1,18 @@
 import type { WorkspaceAnalysis, ExtractedLineItem, ChatMessage, TabData, IssueModalTarget } from "@/types";
 
+export interface PendingAiAction {
+  key: string;
+  title: string;
+  category: string;
+  severity: string;
+  message: string;
+}
+
 export interface RemembranceContextType {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  pendingAiAction: PendingAiAction | null;
+  setPendingAiAction: (action: PendingAiAction | null) => void;
   file: File | null;
   pdfBlobUrl: string | null;
   pdfText: string;

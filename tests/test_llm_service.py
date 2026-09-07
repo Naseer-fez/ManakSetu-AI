@@ -123,3 +123,20 @@ def test_llm_api_endpoints(monkeypatch: pytest.MonkeyPatch) -> None:
     assert ask_res.status_code == 200
     assert "answer" in ask_res.json()
 
+
+def test_format_sliding_history() -> None:
+    """Verify sliding window bounds conversation history to max turns and character limit."""
+    from backend.engine.llm_service import _format_sliding_history
+
+    assert _format_sliding_history(None) == ""
+    assert _format_sliding_history([]) == ""
+
+    # Create 10 turns (20 messages)
+    history = [{"role": "user" if i % 2 == 0 else "assistant", "content": f"Turn {i}"} for i in range(20)]
+    formatted = _format_sliding_history(history, max_messages=6)
+    # Must only contain the last 6 messages (Turns 14 to 19)
+    assert "Turn 19" in formatted
+    assert "Turn 14" in formatted
+    assert "Turn 13" not in formatted
+    assert "Turn 0" not in formatted
+

@@ -49,6 +49,25 @@ def _retrieve_relevant_chunks(pdf_text: str, question: str, top_k: int = 3, chun
     return [c for _, c in scored_chunks[:top_k]]
 
 
+def _format_sliding_history(
+    chat_history: list[Any] | None, max_messages: int = 6, max_chars: int = 2000
+) -> str:
+    """Format and bound conversation history to a sliding window of recent turns."""
+    if not chat_history:
+        return ""
+
+    def _fmt_turn(m: Any) -> str:
+        r = m.get("role", "user") if isinstance(m, dict) else getattr(m, "role", "user")
+        c = m.get("content", "") if isinstance(m, dict) else getattr(m, "content", "")
+        return f"{str(r).capitalize()}: {str(c)}"
+
+    bounded = [msg for msg in chat_history if msg][-max_messages:]
+    formatted = "\n".join(_fmt_turn(msg) for msg in bounded)
+    if len(formatted) > max_chars:
+        formatted = formatted[-max_chars:]
+    return f"Previous Conversation (Recent Turns):\n{formatted}\n\n"
+
+
 logger = get_logger("engine.llm_service")
 _CACHE: dict[str, BaseLlmProvider] = {}
 _LOCK = threading.RLock()
@@ -171,15 +190,7 @@ class LlmService:
 
         c_str = "\n".join(f"- {s.is_code}: {s.title}" for s in context_standards[:5])
 
-        history_str = ""
-        if chat_history:
-            def _fmt_turn(m: Any) -> str:
-                r = m.get("role", "user") if isinstance(m, dict) else getattr(m, "role", "user")
-                c = m.get("content", "") if isinstance(m, dict) else getattr(m, "content", "")
-                return f"{str(r).capitalize()}: {str(c)}"
-
-            formatted_history = "\n".join(_fmt_turn(msg) for msg in chat_history)
-            history_str = f"Previous Conversation:\n{formatted_history}\n\n"
+        history_str = _format_sliding_history(chat_history)
 
         user_p = f"{history_str}Current Procurement Query: {question}\n\nAvailable Standards:\n{c_str}\n\nDocument Excerpts:\n{format_chunk_excerpts(document_chunks)}"
         if pdf_text:
@@ -202,15 +213,7 @@ class LlmService:
 
         c_str = "\n".join(f"- {s.is_code}: {s.title}" for s in context_standards[:5])
 
-        history_str = ""
-        if chat_history:
-            def _fmt_turn(m: Any) -> str:
-                r = m.get("role", "user") if isinstance(m, dict) else getattr(m, "role", "user")
-                c = m.get("content", "") if isinstance(m, dict) else getattr(m, "content", "")
-                return f"{str(r).capitalize()}: {str(c)}"
-
-            formatted_history = "\n".join(_fmt_turn(msg) for msg in chat_history)
-            history_str = f"Previous Conversation:\n{formatted_history}\n\n"
+        history_str = _format_sliding_history(chat_history)
 
         user_p = f"{history_str}Current Procurement Query: {question}\n\nAvailable Standards:\n{c_str}\n\nDocument Excerpts:\n{format_chunk_excerpts(document_chunks)}"
         if pdf_text:
