@@ -1,6 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Sparkles } from "lucide-react";
 import { clsx } from "clsx";
 import type { PositionedNode, NodeRelationItem } from "@/components/graph/types";
 import { GraphInspectorHeader } from "@/components/graph/GraphInspectorHeader";
@@ -11,6 +11,7 @@ interface GraphInspectorPanelProps {
   zoom?: number;
   onClose: () => void;
   onSelectNodeId: (id: string) => void;
+  onAskAI: (node: PositionedNode) => void;
 }
 
 export const GraphInspectorPanel: React.FC<GraphInspectorPanelProps> = ({
@@ -19,6 +20,7 @@ export const GraphInspectorPanel: React.FC<GraphInspectorPanelProps> = ({
   zoom = 1,
   onClose,
   onSelectNodeId,
+  onAskAI,
 }) => {
   const isZoomedIn = zoom >= 1.25;
 
@@ -29,14 +31,15 @@ export const GraphInspectorPanel: React.FC<GraphInspectorPanelProps> = ({
           initial={{ opacity: 0, x: -30, scale: 0.96 }}
           animate={{ opacity: 1, x: 0, scale: 1 }}
           exit={{ opacity: 0, x: -30, scale: 0.96 }}
-          transition={{ duration: 0.25, ease: "easeOut" }}
+          transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
           className={clsx(
             "absolute top-24 left-20 z-30 bg-white/95 dark:bg-[#0c1626]/95 rounded-xl border border-gov-border dark:border-slate-700 shadow-2xl backdrop-blur-xl transition-all duration-300 select-text max-w-[min(460px,38vw)] max-h-[calc(100vh-12rem)] flex flex-col overflow-hidden",
-            isZoomedIn ? "w-[440px] p-6 space-y-4" : "w-[360px] p-4.5 space-y-3"
+            isZoomedIn ? "w-[440px] p-6 space-y-4" : "w-[360px] p-4 space-y-3"
           )}
         >
           <GraphInspectorHeader selectedNode={selectedNode} zoom={zoom} onClose={onClose} />
 
+          {/* Division + Status badges */}
           <div className={clsx("flex gap-2 flex-wrap", isZoomedIn ? "text-xs" : "text-[11px]")}>
             <span className="px-2.5 py-1 rounded bg-gov-offwhite dark:bg-slate-800 border border-gov-border dark:border-slate-700 text-gov-text dark:text-gray-300">
               Division: <strong className="text-gov-navy dark:text-white ml-1">{selectedNode.division || "General"}</strong>
@@ -46,6 +49,7 @@ export const GraphInspectorPanel: React.FC<GraphInspectorPanelProps> = ({
             </span>
           </div>
 
+          {/* Connected Standards list */}
           <div className="space-y-2 pt-2 border-t border-gov-border dark:border-slate-700/80 flex-1 overflow-hidden flex flex-col">
             <div className={clsx("font-bold text-gov-text-secondary dark:text-gray-400 uppercase tracking-wider flex justify-between", isZoomedIn ? "text-xs" : "text-[10px]")}>
               <span>Connected Standards Network</span>
@@ -77,6 +81,22 @@ export const GraphInspectorPanel: React.FC<GraphInspectorPanelProps> = ({
               )}
             </div>
           </div>
+
+          {/* Ask AI Button */}
+          <motion.button
+            type="button"
+            onClick={() => onAskAI(selectedNode)}
+            whileHover={{ scale: 1.03, y: -1 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: "spring", stiffness: 400, damping: 20 }}
+            className={clsx(
+              "w-full flex items-center justify-center gap-2 font-bold rounded-lg border-0 bg-gradient-to-r from-indigo-600 via-blue-600 to-violet-600 text-white shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 transition-shadow",
+              isZoomedIn ? "py-3 text-sm" : "py-2.5 text-xs"
+            )}
+          >
+            <Sparkles className={clsx("shrink-0", isZoomedIn ? "w-4 h-4" : "w-3.5 h-3.5")} />
+            Ask AI about {selectedNode.label}
+          </motion.button>
         </motion.aside>
       )}
     </AnimatePresence>

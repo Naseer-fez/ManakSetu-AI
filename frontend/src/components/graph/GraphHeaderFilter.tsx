@@ -1,6 +1,7 @@
 import React from "react";
 import { Layers, Search, X } from "lucide-react";
 import { clsx } from "clsx";
+import { getDivisionLabel } from "@/components/graph/graph-division.constants";
 
 interface GraphHeaderFilterProps {
   divisions: string[];
@@ -19,25 +20,30 @@ export const GraphHeaderFilter: React.FC<GraphHeaderFilterProps> = ({
 }) => {
   return (
     <div className="absolute top-6 left-6 right-6 z-20 flex flex-wrap items-center justify-between gap-4 pointer-events-none">
-      {/* Division Filter Pills */}
+      {/* Division Filter Pills — full names */}
       <div className="pointer-events-auto bg-[#0c1626]/90 px-2 py-1.5 rounded-full border border-slate-700 flex items-center gap-1 shadow-2xl backdrop-blur-md max-w-[calc(100%-18rem)] overflow-x-auto">
         <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 px-2 flex items-center gap-1 shrink-0">
           <Layers className="w-3 h-3 text-gov-saffron" /> Division
         </span>
-        {divisions.map((div) => (
-          <button
-            key={div}
-            onClick={() => onSelectDivision(div)}
-            className={clsx(
-              "px-3 py-1 rounded-full text-xs font-semibold transition-all whitespace-nowrap shrink-0",
-              selectedDivision === div
-                ? "bg-gov-blue text-white shadow-sm"
-                : "text-gray-400 hover:text-white hover:bg-slate-800"
-            )}
-          >
-            {div}
-          </button>
-        ))}
+        {divisions.map((div) => {
+          const label = getDivisionLabel(div);
+          const isActive = selectedDivision === div;
+          return (
+            <button
+              key={div}
+              onClick={() => onSelectDivision(div)}
+              title={div === "All" ? "Show all divisions" : `${div} — ${label}`}
+              className={clsx(
+                "px-3 py-1 rounded-full text-xs font-semibold transition-all whitespace-nowrap shrink-0 max-w-[180px] truncate",
+                isActive
+                  ? "bg-gov-blue text-white shadow-sm ring-2 ring-blue-400/30"
+                  : "text-gray-400 hover:text-white hover:bg-slate-800"
+              )}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Search Bar */}

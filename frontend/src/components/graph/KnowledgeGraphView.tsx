@@ -9,10 +9,12 @@ import { GraphZoomControls } from "@/components/graph/GraphZoomControls";
 import { GraphInspectorPanel } from "@/components/graph/GraphInspectorPanel";
 import { GraphLegend } from "@/components/graph/GraphLegend";
 import { GraphTenderBanner } from "@/components/graph/GraphTenderBanner";
+import { useRemembrance } from "@/context/RemembranceContext";
 
 export const KnowledgeGraphView: React.FC = () => {
   const data = useGraphData();
   const cam = useGraphCamera(() => data.setSelectedNodeId(null));
+  const { setActiveTab, setChatInput } = useRemembrance();
 
   const handleSelectNode = useCallback((node: PositionedNode) => {
     data.setSelectedNodeId(node.id);
@@ -25,9 +27,18 @@ export const KnowledgeGraphView: React.FC = () => {
     if (!cam.hasMoved.current && data.selectedNodeId) cam.resetCamera();
   };
 
+  const handleAskAI = useCallback((node: PositionedNode) => {
+    const query = `Tell me about ${node.label}: "${node.title}" — explain its scope, key clauses, technical requirements, and compliance implications.`;
+    setChatInput(query);
+    setActiveTab("chat");
+  }, [setChatInput, setActiveTab]);
+
   return (
-    <div className="relative w-full h-full overflow-hidden bg-[#091524] select-none">
-      <div className="absolute inset-0 bg-[radial-gradient(#1e3a5f_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none opacity-40" />
+    <div className="relative w-full h-full overflow-hidden bg-[#07111f] select-none">
+      {/* Deep space background grid */}
+      <div className="absolute inset-0 bg-[radial-gradient(#1e3a5f_1px,transparent_1px)] [background-size:28px_28px] pointer-events-none opacity-30" />
+      {/* Radial vignette */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_50%,transparent_50%,#07111f_100%)] pointer-events-none" />
 
       <GraphHeaderFilter
         divisions={data.divisions}
@@ -38,8 +49,8 @@ export const KnowledgeGraphView: React.FC = () => {
       />
 
       <GraphZoomControls
-        onZoomIn={() => cam.setZoom((z) => Math.min(2.5, Number((z + 0.2).toFixed(2))))}
-        onZoomOut={() => cam.setZoom((z) => Math.max(0.4, Number((z - 0.2).toFixed(2))))}
+        onZoomIn={() => cam.setZoom((z: number) => Math.min(4.0, Number((z + 0.25).toFixed(2))))}
+        onZoomOut={() => cam.setZoom((z: number) => Math.max(0.3, Number((z - 0.25).toFixed(2))))}
         onReset={cam.resetCamera} onReload={data.loadData} loading={data.loading}
       />
 
@@ -73,6 +84,7 @@ export const KnowledgeGraphView: React.FC = () => {
             onMouseDown={cam.handleMouseDown}
             onMouseMove={cam.handleMouseMove}
             onMouseUp={cam.handleMouseUp}
+            onWheel={cam.handleWheel}
             onNodeClick={handleSelectNode}
             onNodeHover={(node) => data.setHoveredNodeId(node.id)}
             onNodeLeave={() => data.setHoveredNodeId(null)}
@@ -86,6 +98,7 @@ export const KnowledgeGraphView: React.FC = () => {
         relations={data.selectedNodeRelations}
         zoom={cam.zoom}
         onClose={cam.resetCamera}
+        onAskAI={handleAskAI}
         onSelectNodeId={(id) => {
           const target = data.nodeMap.get(id);
           if (target) handleSelectNode(target);

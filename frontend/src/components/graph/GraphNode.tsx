@@ -10,6 +10,13 @@ interface GraphNodeProps {
   onMouseLeave: () => void;
 }
 
+/** Truncate IS code title to a short label that fits inside the node ball. */
+function abbreviateTitle(title: string, maxLen: number): string {
+  const cleaned = title.replace(/Indian Standard[\s:–-]*/i, "").trim();
+  if (cleaned.length <= maxLen) return cleaned;
+  return cleaned.slice(0, maxLen - 1) + "…";
+}
+
 export const GraphNode: React.FC<GraphNodeProps> = ({
   node,
   focusState,
@@ -23,13 +30,20 @@ export const GraphNode: React.FC<GraphNodeProps> = ({
   const isUnrelated = focusState === "unrelated";
   const isSecondary = focusState === "secondary";
 
-  const baseRadius = node.is_mandatory ? 26 : 22;
-  const radius = isSelected ? baseRadius + 7 : isHovered ? baseRadius + 3 : baseRadius;
+  const baseRadius = node.is_mandatory ? 28 : 24;
+  const radius = isSelected ? baseRadius + 8 : isHovered ? baseRadius + 4 : baseRadius;
   const themeColor = node.is_mandatory ? "#ff453a" : "#0a84ff";
   const strokeColor = isSelected ? "#ffffff" : isConnected ? "#30d158" : themeColor;
 
-  const opacity = isUnrelated ? 0.12 : isSecondary ? 0.4 : 1;
-  const labelWidth = Math.max(64, node.label.length * 7 + 16);
+  const opacity = isUnrelated ? 0.1 : isSecondary ? 0.38 : 1;
+
+  // Determine what text to show inside the ball
+  const showTitle = isSelected || isHovered;
+  const codeLabel = node.label;
+  const titleLabel = abbreviateTitle(node.title, isSelected ? 20 : 16);
+
+  // Font size scales down for longer codes
+  const codeFontSize = codeLabel.length > 8 ? 8 : codeLabel.length > 6 ? 9 : 10;
 
   return (
     <g
@@ -40,53 +54,103 @@ export const GraphNode: React.FC<GraphNodeProps> = ({
       }}
       onMouseEnter={() => onMouseEnter(node)}
       onMouseLeave={onMouseLeave}
-      className="cursor-pointer transition-transform duration-200"
+      className="cursor-pointer"
       opacity={opacity}
       filter={isUnrelated ? "url(#unrelatedBlur)" : undefined}
+      style={{ transition: "opacity 0.25s ease" }}
     >
+      {/* Outer animated ping ring — selected state */}
       {isSelected && (
         <>
-          <circle r={radius + 16} fill="none" stroke={themeColor} strokeWidth={1.5} opacity={0.3} className="animate-ping" />
-          <circle r={radius + 9} fill="none" stroke={strokeColor} strokeWidth={2.5} opacity={0.8} />
+          <circle
+            r={radius + 18}
+            fill="none"
+            stroke={themeColor}
+            strokeWidth={1.5}
+            opacity={0.25}
+            style={{ animation: "ping 1.4s cubic-bezier(0,0,0.2,1) infinite" }}
+          />
+          <circle r={radius + 10} fill="none" stroke={strokeColor} strokeWidth={2.5} opacity={0.75} />
         </>
       )}
 
+      {/* Hover dashed ring */}
       {(isConnected || isHovered) && !isSelected && (
-        <circle r={radius + 6} fill="none" stroke={strokeColor} strokeWidth={2} opacity={0.7} strokeDasharray="3,3" />
+        <circle
+          r={radius + 7}
+          fill="none"
+          stroke={strokeColor}
+          strokeWidth={1.8}
+          opacity={0.65}
+          strokeDasharray="4,3"
+          style={{ transition: "r 0.2s ease, opacity 0.2s ease" }}
+        />
       )}
 
+      {/* Soft glow behind the node when selected/hovered */}
+      {(isSelected || isHovered) && (
+        <circle
+          r={radius + 4}
+          fill={themeColor}
+          opacity={isSelected ? 0.22 : 0.1}
+          style={{ transition: "opacity 0.2s ease" }}
+        />
+      )}
+
+      {/* Main node body */}
       <circle
         r={radius}
-        fill={isSelected ? themeColor : "#141416"}
+        fill={isSelected ? themeColor : isHovered ? "#1a1d26" : "#141416"}
         stroke={strokeColor}
         strokeWidth={isSelected ? 3.5 : isConnected ? 2.5 : 1.8}
-        className="transition-all duration-200"
+        style={{ transition: "r 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), fill 0.2s ease, stroke 0.2s ease" }}
       />
 
-      <circle r={node.is_mandatory ? 5 : 4} fill={isSelected ? "#ffffff" : themeColor} cy={-radius * 0.45} />
+      {/* Inner radial gradient overlay for depth */}
+      <circle
+        r={radius * 0.6}
+        fill="white"
+        opacity={isSelected ? 0.06 : 0.04}
+        transform={`translate(${-radius * 0.22}, ${-radius * 0.22})`}
+        style={{ pointerEvents: "none" }}
+      />
 
-      <g transform={`translate(0, ${radius + 14})`}>
-        <rect
-          x={-labelWidth / 2}
-          y={-10}
-          width={labelWidth}
-          height={20}
-          rx={6}
-          fill={isSelected ? themeColor : "#0d0e12ee"}
-          stroke={isSelected ? "#ffffff" : isConnected ? "#30d15888" : "#ffffff18"}
-          strokeWidth={isSelected ? 1.5 : 1}
-        />
-        <text
-          textAnchor="middle"
-          y={4}
-          fill="#ffffff"
-          fontSize={isSelected ? 12 : 11}
-          fontWeight={isSelected || isConnected ? 700 : 500}
-          className="select-none pointer-events-none"
-        >
-          {node.label}
-        </text>
-      </g>
+      {/* IS Code — always shown inside the ball (line 1) */}
+      <text
+        textAnchor="middle"
+        y={showTitle ? -3 : 4}
+        fill={isSelected ? "#ffffff" : isHovered ? "#ffffff" : isConnected ? "#30d158" : "#e0e0e0"}
+        fontSize={codeFontSize}
+        fontWeight={700}
+        letterSpacing="0.3"
+        className="select-none pointer-events-none"
+        style={{ transition: "y 0.2s ease, fill 0.2s ease", fontFamily: "monospace" }}
+      >
+        {codeLabel}
+      </text>
+
+      {/* Title abbreviation — only on hover or select (line 2) */}
+      <text
+        textAnchor="middle"
+        y={showTitle ? 10 : 4}
+        fill={isSelected ? "rgba(255,255,255,0.82)" : "rgba(255,255,255,0.55)"}
+        fontSize={7}
+        fontWeight={400}
+        className="select-none pointer-events-none"
+        opacity={showTitle ? 1 : 0}
+        style={{ transition: "opacity 0.2s ease, y 0.2s ease" }}
+      >
+        {titleLabel}
+      </text>
+
+      {/* Mandatory indicator dot */}
+      <circle
+        r={node.is_mandatory ? 4.5 : 3.5}
+        fill={isSelected ? "#ffffff" : themeColor}
+        cy={-radius * 0.48}
+        cx={radius * 0.48}
+        style={{ transition: "fill 0.2s ease" }}
+      />
     </g>
   );
 };
