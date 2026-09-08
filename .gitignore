@@ -70,3 +70,8 @@ dist/
 Thumbs.db
 project_files.txt
 
+# Presentations & Artifact Reviews
+output/
+.ppt-review*/
+.ppt-output*/
+.ppt-assets/
