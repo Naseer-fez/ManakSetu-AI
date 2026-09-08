@@ -3,12 +3,13 @@ import { Document, Page } from "react-pdf";
 import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
 
 interface PdfViewerCanvasProps {
-  file: File | string | null;
+  file: File | Blob | string | null;
   pageNumber: number;
   scale: number;
   onLoadSuccess: (data: { numPages: number }) => void;
   onLoadError: (err: Error) => void;
 }
+
 
 export const PdfViewerCanvas: React.FC<PdfViewerCanvasProps> = ({
   file,
@@ -46,9 +47,9 @@ export const PdfViewerCanvas: React.FC<PdfViewerCanvasProps> = ({
                 The document could not be loaded or parsed. You can download or view it directly using the buttons above.
               </p>
             </div>
-            {typeof file === "string" && (
+            {(typeof file === "string" || file instanceof Blob) && (
               <a
-                href={file}
+                href={typeof file === "string" ? file : URL.createObjectURL(file)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs flex items-center gap-1.5 transition-colors border border-slate-700"
@@ -59,6 +60,7 @@ export const PdfViewerCanvas: React.FC<PdfViewerCanvasProps> = ({
             )}
           </div>
         }
+
       >
         <div className="shadow-2xl rounded-sm overflow-hidden bg-white">
           <Page

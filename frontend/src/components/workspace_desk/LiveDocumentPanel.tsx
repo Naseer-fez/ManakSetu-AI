@@ -63,6 +63,7 @@ export const LiveDocumentPanel: React.FC<LiveDocumentPanelProps> = ({
           </div>
         ) : (
           <LivePdfViewer
+            file={mode === "original" ? document.file : null}
             pdfUrl={activePdfUrl || ""}
             title={mode === "revised" ? "Revised Tender PDF (Live Synced)" : "Original Tender PDF"}
           />
@@ -71,5 +72,6 @@ export const LiveDocumentPanel: React.FC<LiveDocumentPanelProps> = ({
     </section>
   );
 };
+
 
 export default LiveDocumentPanel;

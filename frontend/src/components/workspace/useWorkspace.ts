@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { analyzeWorkspace, askWorkspace, clearWorkspaceChat, createWorkspace, exportWorkspace, getWorkspacePdfUrl } from "@/services/api.service";
+import { analyzeWorkspace, askWorkspace, clearWorkspaceChat, createWorkspace, exportWorkspace } from "@/services/api.service";
+import { savePdfLocally, clearPdfLocally } from "@/lib/pdfStorage.utils";
 import { useRemembrance } from "@/context/RemembranceContext";
 import type { WorkspaceAnalysis } from "@/types";
 import type { ChatMessage } from "@/components/ChatMessageItem";
@@ -41,17 +42,14 @@ export function useWorkspace(tabId: string, onPdfTextLoaded?: (t: string) => voi
   const handleFileSelected = async (f: File) => {
     setBusy(true);
     setFile(f);
-    const tempUrl = URL.createObjectURL(f);
-    setPdfBlobUrl(tempUrl);
     try {
+      const localUrl = await savePdfLocally(`tender_${tabId}`, f);
+      setPdfBlobUrl(localUrl);
       const wsId = await ensureWorkspace();
       const res = await analyzeWorkspace(wsId, f);
       setAnalysis(res);
       const rawText = res.report?.raw_text || "";
-      const backendUrl = getWorkspacePdfUrl(wsId, "original");
-      setPdfBlobUrl(backendUrl);
-      URL.revokeObjectURL(tempUrl);
-      rem.setTenderData(f, res, backendUrl, rawText);
+      rem.setTenderData(f, res, localUrl, rawText);
       if (rawText && onPdfTextLoaded) onPdfTextLoaded(rawText);
       setAiMessages([{ role: "assistant", text: `Grounded in **${f.name}**.\n- Coverage: **${res.compliance_run.coverage}%**\n- Findings: **${res.compliance_run.findings.length}** issues.\n\nAsk me anything about this tender.` }]);
     } catch (err: unknown) {
@@ -60,6 +58,7 @@ export function useWorkspace(tabId: string, onPdfTextLoaded?: (t: string) => voi
       setBusy(false);
     }
   };
+
 
   const handleExport = async (format: "pdf" | "docx") => {
     if (!workspaceId) return;
@@ -103,6 +102,7 @@ export function useWorkspace(tabId: string, onPdfTextLoaded?: (t: string) => voi
     if (workspaceId) {
       clearWorkspaceChat(workspaceId).catch(() => {});
     }
+    clearPdfLocally(`tender_${tabId}`).catch(() => {});
     rem.clearTabData(tabId);
     setAiOpen(false);
   };

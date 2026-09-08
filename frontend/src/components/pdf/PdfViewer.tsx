@@ -5,7 +5,7 @@ import { PdfViewerCanvas } from "@/components/pdf/PdfViewerCanvas";
 import { FileText } from "lucide-react";
 
 interface PdfViewerProps {
-  file: File | string | null;
+  file: File | Blob | string | null;
   title?: string;
   downloadUrl?: string;
 }
@@ -20,9 +20,10 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
   const resolvedDownloadUrl = useMemo(() => {
     if (customDownloadUrl) return customDownloadUrl;
     if (typeof file === "string") return file;
-    if (file instanceof File) return URL.createObjectURL(file);
+    if (file instanceof File || file instanceof Blob) return URL.createObjectURL(file);
     return undefined;
   }, [file, customDownloadUrl]);
+
 
   if (!file) {
     return (

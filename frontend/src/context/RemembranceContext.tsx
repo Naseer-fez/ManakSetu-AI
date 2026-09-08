@@ -41,9 +41,9 @@ export const RemembranceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     try { localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chatMessages)); } catch (err: unknown) { /* ignore */ }
   }, [chatMessages]);
 
-  useEffect(() => () => {
-    if (pdfBlobUrl && pdfBlobUrl.startsWith("blob:")) URL.revokeObjectURL(pdfBlobUrl);
-  }, [pdfBlobUrl]);
+  useEffect(() => {
+    // Persistent blob URLs are managed by pdfStorage.utils
+  }, []);
 
   const setTenderData = (f: File, a: WorkspaceAnalysis, url: string, text?: string) => {
     setFile(f); setAnalysis(a); setPdfBlobUrl(url); if (text) setPdfText(text); setIsPdfConnectedToAiChat(true);

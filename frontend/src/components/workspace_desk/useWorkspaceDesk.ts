@@ -11,6 +11,8 @@ import {
   getWorkspacePdfUrl,
   compilePdfPreview,
 } from "@/services/api.service";
+
+import { savePdfLocally, clearPdfLocally } from "@/lib/pdfStorage.utils";
 import type { PdfEdit } from "@/services/api.service";
 import type { WorkspaceFinding } from "@/types";
 import type { WorkspaceStage, DocumentSource, ComplianceFindingItem, WorkspaceChatMessage } from "@/components/workspace_desk/types";
@@ -71,7 +73,7 @@ export function useWorkspaceDesk() {
   }, []);
 
   const cleanupUrls = useCallback(() => {
-    // Backend-served URLs do not need manual revocation
+    clearPdfLocally("workspace_desk").catch(() => {});
   }, []);
 
   useEffect(() => () => cleanupUrls(), [cleanupUrls]);
@@ -112,6 +114,13 @@ export function useWorkspaceDesk() {
     setStage("auditing");
     setPendingEdits([]);
 
+    let localPdfUrl: string | undefined;
+    try {
+      localPdfUrl = await savePdfLocally("workspace_desk", file);
+    } catch {
+      localPdfUrl = URL.createObjectURL(file);
+    }
+
     setDocument({
       name: file.name,
       type: "pdf",
@@ -119,7 +128,7 @@ export function useWorkspaceDesk() {
       wordCount: 0,
       contentSnippet: "Reading document structure...",
       file,
-      pdfUrl: undefined,
+      pdfUrl: localPdfUrl,
     });
 
     try {
@@ -127,7 +136,6 @@ export function useWorkspaceDesk() {
       setWorkspaceId(workspace.workspace_id);
 
       const extracted = await extractWorkspaceDocument(workspace.workspace_id, file);
-      const backendPdfUrl = getWorkspacePdfUrl(workspace.workspace_id, "original");
       setDocument((curr) => curr ? {
         ...curr,
         workspaceId: workspace.workspace_id,
@@ -136,7 +144,8 @@ export function useWorkspaceDesk() {
         contentSnippet: extracted.markdown.slice(0, 500),
         rawText: extracted.markdown,
         documentHtml: extracted.document_html,
-        pdfUrl: backendPdfUrl,
+        pdfUrl: localPdfUrl,
+        file,
       } : curr);
 
       const analysis = await analyzeWorkspace(workspace.workspace_id, file);
