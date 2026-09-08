@@ -42,8 +42,8 @@ export const LiveDocumentPanel: React.FC<LiveDocumentPanelProps> = ({
   }, [editor, onEditorReady]);
 
   useEffect(() => {
-    setMode(document.pdfUrl ? "original" : "edit");
-  }, [document.pdfUrl, document.name]);
+    setMode((document.pdfUrl || document.file) ? "original" : "edit");
+  }, [document.pdfUrl, document.file, document.name]);
 
   const activePdfUrl = mode === "revised" ? (revisedPdfUrl || document.pdfUrl) : document.pdfUrl;
 

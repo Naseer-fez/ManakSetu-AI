@@ -39,7 +39,7 @@ export const LiveDocumentHeader: React.FC<LiveDocumentHeaderProps> = ({
         <button
           type="button"
           onClick={() => onSelectMode("original")}
-          disabled={!document.pdfUrl}
+          disabled={!document.file && !document.pdfUrl}
           className={`px-2.5 py-1 rounded text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
             mode === "original"
               ? "bg-gov-blue text-white shadow-sm"

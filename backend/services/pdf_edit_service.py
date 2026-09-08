@@ -135,25 +135,26 @@ def _insert_replacement_text(
 ) -> None:
     """Insert replacement text into the target rectangle area.
 
-    Uses insert_textbox for multi-line content or insert_text for short strings.
+    Uses insert_htmlbox to support markdown tables and formatting.
     """
     try:
+        import markdown
+        html_text = markdown.markdown(text, extensions=["extra", "tables", "sane_lists"])
+        css = f"body {{ font-family: sans-serif; font-size: {font_size}px; line-height: 1.2; margin: 0; padding: 0; }}"
+        html_content = f"<!DOCTYPE html><html><head><style>{css}</style></head><body>{html_text}</body></html>"
+        
         expanded = fitz.Rect(
             target_rect.x0,
             target_rect.y0,
-            max(target_rect.x1, target_rect.x0 + 400),
-            max(target_rect.y1, target_rect.y0 + font_size * 2),
+            page.rect.width - 40,
+            page.rect.height - 40,
         )
-        page.insert_textbox(
+        page.insert_htmlbox(
             expanded,
-            text,
-            fontsize=font_size,
-            fontname="helv",
-            color=(0, 0, 0),
-            overlay=True,
+            html_content,
         )
-    except (RuntimeError, ValueError) as exc:
-        logger.warning(f"Textbox insertion failed, falling back to insert_text: {exc}")
+    except Exception as exc:
+        logger.warning(f"HTMLBox insertion failed, falling back to insert_text: {exc}")
         try:
             point = fitz.Point(target_rect.x0, target_rect.y1)
             page.insert_text(
@@ -164,7 +165,7 @@ def _insert_replacement_text(
                 color=(0, 0, 0),
                 overlay=True,
             )
-        except (RuntimeError, ValueError) as fallback_exc:
+        except Exception as fallback_exc:
             logger.error(f"Text insertion failed entirely: {fallback_exc}")
 
 

@@ -25,6 +25,8 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
   }, [file, customDownloadUrl]);
 
 
+  const [viewMode, setViewMode] = React.useState<"canvas" | "native">("canvas");
+
   if (!file) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-6 text-center text-gov-text-secondary dark:text-gray-400 space-y-2">
@@ -42,6 +44,8 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
         numPages={viewer.numPages}
         scale={viewer.scale}
         downloadUrl={resolvedDownloadUrl}
+        viewMode={viewMode}
+        onToggleViewMode={() => setViewMode((v) => (v === "canvas" ? "native" : "canvas"))}
         onPrevPage={viewer.prevPage}
         onNextPage={viewer.nextPage}
         onZoomIn={viewer.zoomIn}
@@ -49,13 +53,23 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
         onResetZoom={viewer.resetZoom}
       />
 
-      <PdfViewerCanvas
-        file={file}
-        pageNumber={viewer.pageNumber}
-        scale={viewer.scale}
-        onLoadSuccess={viewer.onDocumentLoadSuccess}
-        onLoadError={viewer.onDocumentLoadError}
-      />
+      {viewMode === "native" && resolvedDownloadUrl ? (
+        <div className="flex-1 min-h-0 w-full h-full bg-slate-950">
+          <iframe
+            src={resolvedDownloadUrl}
+            title={title}
+            className="w-full h-full border-0"
+          />
+        </div>
+      ) : (
+        <PdfViewerCanvas
+          file={file}
+          pageNumber={viewer.pageNumber}
+          scale={viewer.scale}
+          onLoadSuccess={viewer.onDocumentLoadSuccess}
+          onLoadError={viewer.onDocumentLoadError}
+        />
+      )}
     </div>
   );
 };

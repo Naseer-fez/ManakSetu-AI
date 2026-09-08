@@ -1,18 +1,10 @@
 import { useState, useCallback } from "react";
 import { pdfjs } from "react-pdf";
 
-// Configure local worker with fallback
+// Use local worker statically served from public directory
 if (!pdfjs.GlobalWorkerOptions.workerSrc) {
-  try {
-    pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-      "pdfjs-dist/build/pdf.worker.min.mjs",
-      import.meta.url
-    ).toString();
-  } catch {
-    pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-  }
+  pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 }
-
 
 export function usePdfViewer() {
   const [numPages, setNumPages] = useState<number | null>(null);
@@ -29,9 +21,11 @@ export function usePdfViewer() {
   }, []);
 
   const onDocumentLoadError = useCallback((err: Error) => {
+    console.error("[PdfViewer] Failed to load PDF document:", err);
     setLoading(false);
     setError(err.message || "Failed to load document");
   }, []);
+
 
   const prevPage = useCallback(() => {
     setPageNumber((curr) => Math.max(curr - 1, 1));

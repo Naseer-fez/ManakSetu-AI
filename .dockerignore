@@ -1,16 +1,50 @@
-__pycache__
-*.pyc
-*.pyo
-*.pyd
+# Python & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
 .Python
+
+# Virtual environments
+.venv/
 env/
 venv/
-.env
-.venv
-.git
+ENV/
+
+# Git & IDEs
+.git/
 .gitignore
-.dockerignore
+.gitattributes
+.idea/
+.vscode/
+.cursor/
+.claude/
+.agents/
+*.swp
+*.swo
+
+# Node & Frontend
+frontend/node_modules/
 node_modules/
-dist/
-build/
+frontend/dist/
+frontend/.vite/
+
+# Large temporary archives & presentations
+Mac.zip
+.ppt-assets/
+.ppt-output-review-ps108/
+.ppt-output-review-ps108-v2/
+.ppt-output-review-ps108-v3/
+.ppt-review-ps108/
+output/
+New folder/
+legacy/
+
+# Logs & Caches
 *.log
+backend/logs/*
+backend/data/tts_cache/*
+backend/data/uploads/*
+.pytest_cache/
+.cache/
+llm/.cache/

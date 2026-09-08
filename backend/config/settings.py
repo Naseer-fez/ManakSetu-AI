@@ -237,6 +237,11 @@ def load_settings(config_path: str | Path | None = None) -> AppSettings:
         if "web_search" not in raw_data or not isinstance(raw_data["web_search"], dict):
             raw_data["web_search"] = {}
         raw_data["web_search"]["enabled"] = env_ws.strip().lower() in ("1", "true", "yes", "on")
+    env_require_cuda = os.getenv("REQUIRE_CUDA")
+    if env_require_cuda is not None:
+        if "ai_engine" not in raw_data or not isinstance(raw_data["ai_engine"], dict):
+            raw_data["ai_engine"] = {}
+        raw_data["ai_engine"]["require_cuda"] = env_require_cuda.strip().lower() in ("1", "true", "yes", "on")
     env_min_score = os.getenv("MIN_RELEVANCE_SCORE") or os.getenv("SIMILARITY_THRESHOLD")
     if env_min_score is not None:
         try:

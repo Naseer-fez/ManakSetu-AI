@@ -5,7 +5,7 @@ import path from "path";
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const backendUrl = env.VITE_BACKEND_URL || process.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
-  const macBaseUrl = env.VITE_MAC_BASE_URL || process.env.VITE_MAC_BASE_URL || "http://10.118.237.94:5008";
+  const macBaseUrl = env.VITE_MAC_BASE_URL || process.env.VITE_MAC_BASE_URL || "http://10.193.109.94:5008";
 
   return {
     plugins: [react()],

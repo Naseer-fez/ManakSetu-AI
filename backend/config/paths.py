@@ -21,6 +21,7 @@ LOGS_DIR: Path = Path(os.getenv("APP_LOGS_DIR", str(BACKEND_DIR / "logs")))
 UPLOADS_DIR: Path = Path(os.getenv("APP_UPLOADS_DIR", str(DATA_DIR / "uploads")))
 WORKSPACES_DIR: Path = Path(os.getenv("APP_WORKSPACES_DIR", str(DATA_DIR / "workspaces")))
 CACHE_DIR: Path = DATA_DIR
+FRONTEND_DIST_DIR: Path = Path(os.getenv("FRONTEND_DIST_DIR", str(PROJECT_ROOT / "frontend" / "dist")))
 
 # Configuration files
 CONFIG_YAML_PATH: Path = Path(os.getenv("APP_CONFIG_PATH", str(CONFIG_DIR / "config.yaml")))

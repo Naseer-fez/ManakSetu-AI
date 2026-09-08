@@ -19,7 +19,7 @@ from backend.api.tender_router import router as tender_router
 from backend.api.voice_agent_router import router as voice_router
 from backend.api.voice_live_router import router as voice_live_router
 from backend.api.workspace_router import router as workspace_router
-from backend.config.paths import TTS_CACHE_DIR
+from backend.config.paths import FRONTEND_DIST_DIR, TTS_CACHE_DIR
 from backend.config.settings import app_settings
 from backend.data.seed_generator import generate_seed_data
 from backend.engine.model_warmup import warmup_backend_ai_models
@@ -146,6 +146,10 @@ async def health_check() -> dict[str, object]:
 async def metrics_endpoint() -> Response:
     """Prometheus metrics endpoint."""
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
+if FRONTEND_DIST_DIR.exists() and (FRONTEND_DIST_DIR / "index.html").exists():
+    app.mount("/", StaticFiles(directory=str(FRONTEND_DIST_DIR), html=True), name="frontend_ui")
 
 
 def start_server() -> None:

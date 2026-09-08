@@ -65,10 +65,10 @@ class LlmOrchestrator:
         )
         if self._distributed:
             self._cloud = cp or RemoteMacLlmProvider()
-            self._local = lp or get_llm_provider("local")
+            self._local = lp or get_llm_provider("fast")
         else:
             self._cloud = cp or _get_default_cloud_provider()
-            self._local = lp or get_llm_provider("local")
+            self._local = lp or get_llm_provider("fast")
         self._timeout_sec = getattr(app_settings.distributed_reasoning, "mac_timeout_sec", timeout_sec)
         self._fallback = DeterministicFallbackProvider()
         self._reranker = DocumentChunkReranker()
@@ -184,6 +184,24 @@ class LlmOrchestrator:
                 prompt += f"\n\nDocument Context:\n{chunk_texts}"
             else:
                 prompt += f"\n\nDocument Context:\n{pdf_text[:max_chars]}"
+        else:
+            # Query Indian Standards registry for relevant specifications
+            try:
+                from backend.engine.hybrid_retriever import HybridRetriever
+                retriever = HybridRetriever()
+                matches = retriever.search(query, top_k=3)
+                if matches:
+                    standards_info = []
+                    for item in matches:
+                        std = item[0] if isinstance(item, (list, tuple)) else item
+                        code = getattr(std, "is_code", "")
+                        title = getattr(std, "title", "")
+                        scope = getattr(std, "scope", "")
+                        standards_info.append(f"- Standard: {code} ({title})\n  Scope: {scope}")
+                    if standards_info:
+                        prompt += "\n\n[VECTORDB_CONTEXT - Indian Standards Registry]:\n" + "\n".join(standards_info)
+            except (RuntimeError, ValueError, OSError, Exception) as exc:
+                logger.warning(f"Fast Answer standards retrieval skipped ({type(exc).__name__}): {exc}")
         prompt += "\n\nProvide a rapid, precise answer on Indian Standards compliance and requirements."
         kwargs = _safe_kwargs(self._local.generate_text, max_tokens=256, use_grammar=False)
         try:
@@ -193,7 +211,7 @@ class LlmOrchestrator:
                     system_prompt=LLM_PROMPTS["FAST_MODEL_DIRECT_QA_PROMPT"],
                     **kwargs,
                 ),
-                timeout=15.0,
+                timeout=30.0,
             )
             if raw and len(raw.strip()) > 5 and "No LLM model is currently available" not in raw:
                 return PipelineAnswerResponse(

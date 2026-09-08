@@ -1,5 +1,6 @@
 import type { Editor } from "@tiptap/react";
 import type { ComplianceFindingItem, FindingFilterTab, FindingStatus } from "@/components/workspace_desk/types";
+import { marked } from "marked";
 
 export function formatFileSize(bytes: number): string {
   if (bytes <= 0) return "0 B";
@@ -38,7 +39,7 @@ export function generateAiPromptForFinding(finding: ComplianceFindingItem): stri
   return `Regarding ${finding.clauseLocation}: The audit notes "${finding.explanation}". How should I redraft this tender clause to resolve the issue?`;
 }
 
-export function replaceExactEditorBlock(editor: Editor | null, sourceText: string, replacementText: string): boolean {
+export async function replaceExactEditorBlock(editor: Editor | null, sourceText: string, replacementText: string): Promise<boolean> {
   if (!editor || !sourceText.trim() || !replacementText.trim()) return false;
   const normalizeClause = (value: string): string => value
     .replace(/^#{1,6}\s+/gm, "")
@@ -55,11 +56,9 @@ export function replaceExactEditorBlock(editor: Editor | null, sourceText: strin
     return false;
   });
   if (from === null || to === null) return false;
-  const replacement = editor.schema.text(replacementText);
-  editor.chain().focus().command(({ tr }) => {
-    tr.replaceWith(from as number, to as number, replacement);
-    return true;
-  }).run();
+  
+  const htmlReplacement = await marked.parse(replacementText);
+  editor.chain().focus().deleteRange({ from: from as number, to: to as number }).insertContentAt(from as number, htmlReplacement).run();
   return true;
 }
 

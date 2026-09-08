@@ -203,10 +203,10 @@ export function useWorkspaceDesk() {
     setStage("review");
   };
 
-  const handleApplyFinding = (id: string) => {
+  const handleApplyFinding = async (id: string) => {
     const finding = findings.find((candidate) => candidate.id === id);
     if (!finding) return;
-    const applied = replaceExactEditorBlock(editorRef.current, finding.sourceText, finding.replacementText);
+    const applied = await replaceExactEditorBlock(editorRef.current, finding.sourceText, finding.replacementText);
     setFindings((prev) => prev.map((c) => c.id === id
       ? { ...c, resolution: applied ? "applied" : c.resolution, applyError: applied ? undefined : "The source clause changed or is unavailable in the editor." }
       : c));
