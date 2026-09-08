@@ -1,5 +1,5 @@
-import { putPdfRecord, getPdfRecord, deletePdfRecord, type StoredPdfRecord } from "@/lib/pdfIndexedDb.utils";
-
+const DB_NAME = "bis_specai_storage";
+const STORE_NAME = "pdfs";
 const META_PREFIX = "bis_pdf_meta_";
 
 export interface StoredPdfMetadata {
@@ -10,6 +10,23 @@ export interface StoredPdfMetadata {
 }
 
 const activeBlobUrls = new Map<string, string>();
+
+function openDatabase(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (typeof indexedDB === "undefined") {
+      return reject(new Error("IndexedDB is not available"));
+    }
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: "key" });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error("Failed to open IndexedDB"));
+  });
+}
 
 export function getCachedBlobUrl(key: string): string | null {
   return activeBlobUrls.get(key) || null;
@@ -34,8 +51,13 @@ export async function savePdfLocally(key: string, file: File | Blob, name?: stri
   };
 
   try {
-    const record: StoredPdfRecord = { ...metadata, blob: file };
-    await putPdfRecord(record);
+    const db = await openDatabase();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      tx.objectStore(STORE_NAME).put({ ...metadata, blob: file });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
     localStorage.setItem(`${META_PREFIX}${key}`, JSON.stringify(metadata));
   } catch (err) {
     console.warn(`[pdfStorage] IndexedDB save fallback for ${key}:`, err);
@@ -51,8 +73,13 @@ export async function savePdfLocally(key: string, file: File | Blob, name?: stri
 
 export async function getPdfBlob(key: string): Promise<Blob | null> {
   try {
-    const record = await getPdfRecord(key);
-    return record ? record.blob : null;
+    const db = await openDatabase();
+    return await new Promise<Blob | null>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readonly");
+      const req = tx.objectStore(STORE_NAME).get(key);
+      req.onsuccess = () => resolve(req.result ? req.result.blob : null);
+      req.onerror = () => reject(req.error);
+    });
   } catch {
     return null;
   }
@@ -78,7 +105,13 @@ export async function clearPdfLocally(key: string): Promise<void> {
   }
   try {
     localStorage.removeItem(`${META_PREFIX}${key}`);
-    await deletePdfRecord(key);
+    const db = await openDatabase();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      tx.objectStore(STORE_NAME).delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
   } catch {
     // Ignore cleanup errors
   }
