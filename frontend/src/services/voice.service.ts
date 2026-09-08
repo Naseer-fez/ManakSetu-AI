@@ -5,7 +5,7 @@ const API_BASE = (import.meta.env.VITE_API_URL as string) || (import.meta.env.VI
 export async function sendVoiceChat(
   audioBlob: Blob,
   chatHistory: VoiceChatMessage[] = [],
-  mode: "fast" | "thinking" = "thinking",
+  mode: "fast" | "thinking" = "fast",
   language: string = "auto",
   pdfText?: string
 ): Promise<VoiceChatResponse> {

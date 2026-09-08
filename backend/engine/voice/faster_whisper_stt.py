@@ -7,6 +7,7 @@ import threading
 import time
 from typing import Any
 from backend.config.settings import VoiceSettings, app_settings
+from backend.engine.voice.indic_normalizer import get_stt_prompt, is_urdu_script, urdu_to_devanagari
 from backend.engine.voice.stt_provider import SpeechToTextProvider, TranscriptionResult
 from backend.logger.app_logger import get_logger
 
@@ -63,10 +64,11 @@ class FasterWhisperSTT(SpeechToTextProvider):
         start_t = time.perf_counter()
         try:
             target_lang = None if (language in (None, "", "auto") and self._default_lang == "auto") else (language or self._default_lang)
+            stt_prompt = get_stt_prompt(target_lang or "") if target_lang and target_lang != "auto" else self._initial_prompt
             kwargs: dict[str, Any] = {
                 "beam_size": self._beam_size,
                 "task": self._task,
-                "initial_prompt": self._initial_prompt,
+                "initial_prompt": stt_prompt,
             }
             if target_lang and target_lang != "auto":
                 kwargs["language"] = target_lang
@@ -76,6 +78,9 @@ class FasterWhisperSTT(SpeechToTextProvider):
             elapsed = time.perf_counter() - start_t
             det_lang = getattr(info, "language", target_lang or "en")
             prob = float(getattr(info, "language_probability", 1.0))
+            if det_lang == "ur" or is_urdu_script(text):
+                text = urdu_to_devanagari(text)
+                det_lang = "hi"
             logger.info(f"Transcribed ({elapsed:.2f}s, lang={det_lang}, prob={prob:.2f}): '{text[:60]}'")
             return TranscriptionResult(text=text, language=det_lang, duration_sec=elapsed, confidence=prob)
         except (RuntimeError, OSError, ValueError) as exc:

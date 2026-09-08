@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { analyzeWorkspace, askWorkspace, clearWorkspaceChat, createWorkspace, exportWorkspace } from "@/services/api.service";
+import { analyzeWorkspace, askWorkspace, clearWorkspaceChat, createWorkspace, exportWorkspace, getWorkspacePdfUrl } from "@/services/api.service";
 import { useRemembrance } from "@/context/RemembranceContext";
 import type { WorkspaceAnalysis } from "@/types";
 import type { ChatMessage } from "@/components/ChatMessageItem";
@@ -41,15 +41,17 @@ export function useWorkspace(tabId: string, onPdfTextLoaded?: (t: string) => voi
   const handleFileSelected = async (f: File) => {
     setBusy(true);
     setFile(f);
-    if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
-    const newUrl = URL.createObjectURL(f);
-    setPdfBlobUrl(newUrl);
+    const tempUrl = URL.createObjectURL(f);
+    setPdfBlobUrl(tempUrl);
     try {
       const wsId = await ensureWorkspace();
       const res = await analyzeWorkspace(wsId, f);
       setAnalysis(res);
       const rawText = res.report?.raw_text || "";
-      rem.setTenderData(f, res, newUrl, rawText);
+      const backendUrl = getWorkspacePdfUrl(wsId, "original");
+      setPdfBlobUrl(backendUrl);
+      URL.revokeObjectURL(tempUrl);
+      rem.setTenderData(f, res, backendUrl, rawText);
       if (rawText && onPdfTextLoaded) onPdfTextLoaded(rawText);
       setAiMessages([{ role: "assistant", text: `Grounded in **${f.name}**.\n- Coverage: **${res.compliance_run.coverage}%**\n- Findings: **${res.compliance_run.findings.length}** issues.\n\nAsk me anything about this tender.` }]);
     } catch (err: unknown) {
@@ -68,6 +70,9 @@ export function useWorkspace(tabId: string, onPdfTextLoaded?: (t: string) => voi
       a.href = URL.createObjectURL(blob);
       a.download = `Audited_Tender_${workspaceId.slice(0, 8)}.${format}`;
       a.click();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Export failed";
+      setAiMessages(prev => [...prev, { role: "assistant", text: `⚠️ Export error: ${message}` }]);
     } finally { setExportBusy(false); }
   };
 

@@ -7,7 +7,11 @@ import {
   createWorkspace,
   exportWorkspacePdf,
   extractWorkspaceDocument,
+  applyPdfEdits,
+  getWorkspacePdfUrl,
+  compilePdfPreview,
 } from "@/services/api.service";
+import type { PdfEdit } from "@/services/api.service";
 import type { WorkspaceFinding } from "@/types";
 import type { WorkspaceStage, DocumentSource, ComplianceFindingItem, WorkspaceChatMessage } from "@/components/workspace_desk/types";
 import { SAMPLE_WORKSPACE_FINDINGS } from "@/components/workspace_desk/sampleFindings";
@@ -57,6 +61,7 @@ export function useWorkspaceDesk() {
   const [isExporting, setIsExporting] = useState(false);
   const [isCompilingPdf, setIsCompilingPdf] = useState(false);
   const [revisedPdfUrl, setRevisedPdfUrl] = useState<string | null>(null);
+  const [pendingEdits, setPendingEdits] = useState<PdfEdit[]>([]);
 
   const editorRef = useRef<Editor | null>(null);
   const recompileTimeoutRef = useRef<number | null>(null);
@@ -66,22 +71,17 @@ export function useWorkspaceDesk() {
   }, []);
 
   const cleanupUrls = useCallback(() => {
-    if (document?.pdfUrl) URL.revokeObjectURL(document.pdfUrl);
-    if (revisedPdfUrl) URL.revokeObjectURL(revisedPdfUrl);
-  }, [document?.pdfUrl, revisedPdfUrl]);
+    // Backend-served URLs do not need manual revocation
+  }, []);
 
   useEffect(() => () => cleanupUrls(), [cleanupUrls]);
 
-  const recompilePdf = useCallback(async (htmlContent: string, currentWorkspaceId: string, docName: string) => {
+  const recompilePdf = useCallback(async (htmlContent: string, currentWorkspaceId: string, docName: string, edits: PdfEdit[] = []) => {
     if (!currentWorkspaceId || !docName || !htmlContent.trim()) return;
     setIsCompilingPdf(true);
     try {
-      const blob = await exportWorkspacePdf(currentWorkspaceId, htmlContent, docName);
-      const url = URL.createObjectURL(blob);
-      setRevisedPdfUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return url;
-      });
+      const result = await compilePdfPreview(currentWorkspaceId, htmlContent, docName, edits);
+      setRevisedPdfUrl(result.pdf_url);
     } catch {
       // Recompile failure is non-fatal for live preview
     } finally {
@@ -89,15 +89,15 @@ export function useWorkspaceDesk() {
     }
   }, []);
 
-  const triggerRecompileDebounced = useCallback((html: string) => {
+  const triggerRecompileDebounced = useCallback((html: string, currentEdits: PdfEdit[] = pendingEdits) => {
     if (!workspaceId || !document?.name) return;
     if (recompileTimeoutRef.current) window.clearTimeout(recompileTimeoutRef.current);
     const targetWsId = workspaceId;
     const targetName = document.name;
     recompileTimeoutRef.current = window.setTimeout(() => {
-      void recompilePdf(html, targetWsId, targetName);
+      void recompilePdf(html, targetWsId, targetName, currentEdits);
     }, 1200);
-  }, [workspaceId, document?.name, recompilePdf]);
+  }, [workspaceId, document?.name, recompilePdf, pendingEdits]);
 
   const handleEditorChange = useCallback((html: string) => {
     setDocument((curr) => curr ? { ...curr, documentHtml: html } : curr);
@@ -110,8 +110,8 @@ export function useWorkspaceDesk() {
     setIsAuditReady(false);
     setIsExtracting(true);
     setStage("auditing");
+    setPendingEdits([]);
 
-    const initialPdfUrl = URL.createObjectURL(file);
     setDocument({
       name: file.name,
       type: "pdf",
@@ -119,7 +119,7 @@ export function useWorkspaceDesk() {
       wordCount: 0,
       contentSnippet: "Reading document structure...",
       file,
-      pdfUrl: initialPdfUrl,
+      pdfUrl: undefined,
     });
 
     try {
@@ -127,6 +127,7 @@ export function useWorkspaceDesk() {
       setWorkspaceId(workspace.workspace_id);
 
       const extracted = await extractWorkspaceDocument(workspace.workspace_id, file);
+      const backendPdfUrl = getWorkspacePdfUrl(workspace.workspace_id, "original");
       setDocument((curr) => curr ? {
         ...curr,
         workspaceId: workspace.workspace_id,
@@ -135,6 +136,7 @@ export function useWorkspaceDesk() {
         contentSnippet: extracted.markdown.slice(0, 500),
         rawText: extracted.markdown,
         documentHtml: extracted.document_html,
+        pdfUrl: backendPdfUrl,
       } : curr);
 
       const analysis = await analyzeWorkspace(workspace.workspace_id, file);
@@ -199,10 +201,19 @@ export function useWorkspaceDesk() {
     setFindings((prev) => prev.map((c) => c.id === id
       ? { ...c, resolution: applied ? "applied" : c.resolution, applyError: applied ? undefined : "The source clause changed or is unavailable in the editor." }
       : c));
-    if (applied && editorRef.current) {
-      const updatedHtml = editorRef.current.getHTML();
-      setDocument((curr) => curr ? { ...curr, documentHtml: updatedHtml } : curr);
-      triggerRecompileDebounced(updatedHtml);
+    if (applied) {
+      const newEdit: PdfEdit = {
+        source_text: finding.sourceText,
+        replacement_text: finding.replacementText,
+        finding_id: finding.id,
+      };
+      const updatedEdits = [...pendingEdits, newEdit];
+      setPendingEdits(updatedEdits);
+      if (editorRef.current) {
+        const updatedHtml = editorRef.current.getHTML();
+        setDocument((curr) => curr ? { ...curr, documentHtml: updatedHtml } : curr);
+        triggerRecompileDebounced(updatedHtml, updatedEdits);
+      }
     }
   };
 
@@ -250,13 +261,23 @@ export function useWorkspaceDesk() {
     setIsExporting(true);
     setError(null);
     try {
-      const blob = await exportWorkspacePdf(workspaceId, editorRef.current?.getHTML() || document.documentHtml || "", document.name);
-      const url = URL.createObjectURL(blob);
-      const anchor = window.document.createElement("a");
-      anchor.href = url;
-      anchor.download = `${document.name.replace(/\.[^.]+$/, "")}-revised.pdf`;
-      anchor.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      if (pendingEdits.length > 0) {
+        const result = await applyPdfEdits(workspaceId, pendingEdits, document.name);
+        setRevisedPdfUrl(result.pdf_url);
+        const downloadUrl = getWorkspacePdfUrl(workspaceId, "revised");
+        const anchor = window.document.createElement("a");
+        anchor.href = downloadUrl;
+        anchor.download = `${document.name.replace(/\.[^.]+$/, "")}-revised.pdf`;
+        anchor.click();
+      } else {
+        const blob = await exportWorkspacePdf(workspaceId, editorRef.current?.getHTML() || document.documentHtml || "", document.name);
+        const url = URL.createObjectURL(blob);
+        const anchor = window.document.createElement("a");
+        anchor.href = url;
+        anchor.download = `${document.name.replace(/\.[^.]+$/, "")}-revised.pdf`;
+        anchor.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 5000);
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "PDF export failed");
     } finally {
@@ -285,6 +306,7 @@ export function useWorkspaceDesk() {
     setWorkspaceId(null);
     setDocument(null);
     setRevisedPdfUrl(null);
+    setPendingEdits([]);
     setFindings(SAMPLE_WORKSPACE_FINDINGS);
     setAiInput("");
     setError(null);
@@ -294,7 +316,7 @@ export function useWorkspaceDesk() {
   return {
     title, setTitle, stage, setStage, workspaceId, document, findings,
     aiInput, setAiInput, aiMessages, setAiMessages, error, isExtracting, isAuditReady,
-    isExporting, isCompilingPdf, revisedPdfUrl,
+    isExporting, isCompilingPdf, revisedPdfUrl, pendingEdits,
     setEditor, handleFileSelect, handleTextSubmit, handleCompleteAudit, handleApplyFinding,
     handleEditorChange, handleCorrectionChange, handleIgnoreFinding, handleResetFinding,
     handleRestoreAllIgnored, handleAskAiForFinding, handleSendAiMessage, handleCreatePdf,

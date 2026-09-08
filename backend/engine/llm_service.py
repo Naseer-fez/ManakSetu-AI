@@ -81,7 +81,7 @@ def get_llm_provider(provider_type: str | None = None) -> BaseLlmProvider:
     raw_sel = provider_type.lower() if provider_type else None
 
     if mac_mode:
-        if raw_sel in ("local", "local_gguf", "gguf", "local_2b", "preprocessor", "local_operations", "fast_answer"):
+        if raw_sel in ("local", "local_gguf", "gguf", "local_2b", "preprocessor", "local_operations", "fast_answer", "fast", "fast_model", "voice"):
             sel = "local_2b"
         elif raw_sel in ("mac", "remote_mac", "reasoning", "remote", "cloud", "heavy_reasoning"):
             sel = "remote_mac"
@@ -90,7 +90,10 @@ def get_llm_provider(provider_type: str | None = None) -> BaseLlmProvider:
         else:
             sel = raw_sel
     else:
-        sel = (raw_sel or app_settings.llm.provider).lower()
+        if raw_sel in ("fast", "fast_model", "local_2b", "voice"):
+            sel = "local_2b"
+        else:
+            sel = (raw_sel or app_settings.llm.provider).lower()
 
     with _LOCK:
         if sel not in _CACHE:

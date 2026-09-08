@@ -3,17 +3,37 @@ import { FileDown, FileText, Eye, Download, Info, Loader2 } from "lucide-react";
 
 interface FinalActionsBarProps {
   onCreatePdf: () => void;
+  onViewPdf?: () => void;
+  revisedPdfUrl?: string | null;
   isExporting: boolean;
   error?: string | null;
 }
 
-export const FinalActionsBar: React.FC<FinalActionsBarProps> = ({ onCreatePdf, isExporting, error }) => {
+export const FinalActionsBar: React.FC<FinalActionsBarProps> = ({
+  onCreatePdf,
+  onViewPdf,
+  revisedPdfUrl,
+  isExporting,
+  error,
+}) => {
   const actions = [
     { id: "create_pdf", label: "Create PDF", icon: FileDown },
     { id: "view_pdf", label: "View PDF", icon: Eye },
     { id: "create_docx", label: "Create Standard DOCX", icon: FileText },
     { id: "download_report", label: "Download Compliance Report", icon: Download },
   ];
+
+  const handleAction = (actionId: string) => {
+    if (actionId === "create_pdf") {
+      onCreatePdf();
+    } else if (actionId === "view_pdf" && revisedPdfUrl) {
+      if (onViewPdf) {
+        onViewPdf();
+      } else {
+        window.open(revisedPdfUrl, "_blank");
+      }
+    }
+  };
 
   return (
     <footer className="relative shrink-0 bg-white dark:bg-[#111927] rounded-lg border border-gov-border dark:border-slate-800 p-3 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
@@ -26,22 +46,38 @@ export const FinalActionsBar: React.FC<FinalActionsBarProps> = ({ onCreatePdf, i
         {actions.map((act) => {
           const Icon = act.icon;
           const isPdf = act.id === "create_pdf";
+          const isViewPdf = act.id === "view_pdf";
+          const isEnabled = isPdf || (isViewPdf && Boolean(revisedPdfUrl));
           return (
             <button
               key={act.id}
-              onClick={isPdf ? onCreatePdf : undefined}
-              disabled={!isPdf || isExporting}
+              onClick={() => handleAction(act.id)}
+              disabled={!isEnabled || isExporting}
               className={`px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition-all ${
                 isPdf
                   ? "bg-gov-blue hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                  : isViewPdf && revisedPdfUrl
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 shadow-sm cursor-pointer"
                   : "bg-gov-offwhite dark:bg-slate-800/80 hover:bg-gray-100 dark:hover:bg-slate-700 border border-gov-border dark:border-slate-700 text-gov-navy dark:text-gray-200 disabled:opacity-40"
               }`}
-              title={isPdf ? "Download regenerated PDF" : "Option active after statutory verification"}
+              title={
+                isPdf
+                  ? "Download regenerated PDF"
+                  : isViewPdf && revisedPdfUrl
+                  ? "View revised PDF in new tab"
+                  : "Option active after statutory verification"
+              }
             >
               {isPdf && isExporting ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
-                <Icon className={`w-3.5 h-3.5 ${isPdf ? "text-white" : "text-gov-text-secondary dark:text-gray-400"}`} />
+                <Icon
+                  className={`w-3.5 h-3.5 ${
+                    isPdf || (isViewPdf && revisedPdfUrl)
+                      ? "text-white"
+                      : "text-gov-text-secondary dark:text-gray-400"
+                  }`}
+                />
               )}
               <span>{act.label}</span>
             </button>

@@ -20,7 +20,7 @@ export const VoiceAssistantView: React.FC = () => {
     setIsProcessing(true);
     const tempId = Date.now().toString();
     try {
-      const resp = await sendVoiceChat(blob, messages, "thinking", language);
+      const resp = await sendVoiceChat(blob, messages, "fast", language);
       const userMsg: VoiceChatMessage = {
         id: `user-${tempId}`,
         role: "user",

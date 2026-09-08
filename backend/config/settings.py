@@ -143,7 +143,7 @@ class DistributedReasoningSettings(BaseModel):
 class WebSearchSettings(BaseModel):
     enabled: bool = False
     provider: str = "duckduckgo"
-    request_timeout_sec: int = 15
+    request_timeout_sec: int = 6
     fast_answer_top_k: int = 2
     fast_answer_max_tokens: int = 300
     heavy_reasoning_top_k: int = 3

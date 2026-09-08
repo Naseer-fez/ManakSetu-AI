@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import AsyncGenerator
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel
 from backend.config.settings import app_settings
 from backend.engine.artifact_store import ArtifactStore
@@ -19,9 +19,19 @@ from backend.engine.gpu_policy import CudaUnavailableError, require_cuda_async
 from backend.engine.hybrid_retriever import HybridRetriever
 from backend.engine.singleton_registry import get_singleton
 from backend.ingestion.standards_loader import StandardsLoader
-from backend.models.document_contracts import ExportPdfRequest, ExportRequest, Revision, TemplateProfile
+from backend.logger.app_logger import get_logger
+from backend.models.document_contracts import (
+    ApplyEditsRequest,
+    ApplyEditsResponse,
+    CompilePreviewRequest,
+    ExportPdfRequest,
+    ExportRequest,
+    Revision,
+    TemplateProfile,
+)
 from backend.parsers.document_parser import DocumentParser
 from backend.parsers.pdf_markdown_parser import PdfMarkdownParser
+from backend.services.pdf_edit_service import apply_edits_to_pdf, get_pdf_page_count
 from backend.services.workspace_document_service import (
     count_words,
     markdown_to_editor_html,
@@ -29,6 +39,8 @@ from backend.services.workspace_document_service import (
     render_pdf,
     safe_pdf_filename,
 )
+
+logger = get_logger("api.workspace_router")
 
 router = APIRouter(prefix="/api/v1/workspaces", tags=["workspaces"])
 store = WorkspaceStore(app_settings.storage.workspace_dir)
@@ -280,6 +292,11 @@ async def export_workspace(workspace_id: str, req: ExportRequest) -> Response:
         raise HTTPException(status_code=409, detail="Approve the revision before compliance-checked export")
     try:
         if req.format.lower() == "docx":
+            if str(source_path).lower().endswith(".pdf"):
+                raise HTTPException(
+                    status_code=422,
+                    detail="Cannot export a PDF source as DOCX. Upload a DOCX template or use PDF export.",
+                )
             payload = await asyncio.to_thread(templates.render_docx, source_path, req.template, req.values)
             media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             filename = "tender.docx"
@@ -312,3 +329,102 @@ async def export_workspace_pdf(workspace_id: str, req: ExportPdfRequest) -> Resp
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.post("/{workspace_id}/apply-edits", response_model=ApplyEditsResponse)
+async def apply_workspace_edits(workspace_id: str, req: ApplyEditsRequest) -> ApplyEditsResponse:
+    """Apply text replacements to the original uploaded PDF, preserving structure."""
+    _require_workspace(workspace_id)
+    if await store.get_workspace(workspace_id) is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    document = await store.get_document(workspace_id)
+    if not document:
+        raise HTTPException(status_code=409, detail="Upload a tender document first")
+    source_path = document["path"]
+    if not Path(source_path).exists():
+        raise HTTPException(status_code=409, detail="Original PDF file is not available")
+    edits_dicts = [{"source_text": e.source_text, "replacement_text": e.replacement_text} for e in req.edits]
+    try:
+        pdf_bytes, applied, failed = await asyncio.to_thread(apply_edits_to_pdf, source_path, edits_dicts)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (RuntimeError, ValueError, OSError) as exc:
+        raise HTTPException(status_code=422, detail=f"PDF edit failed: {exc}") from exc
+    path, sha = await artifacts.save_revised(workspace_id, req.document_name, pdf_bytes)
+    await store.save_revised_pdf(workspace_id, path, sha)
+    pdf_url = f"/api/v1/workspaces/{workspace_id}/pdf?version=revised"
+    pages = await asyncio.to_thread(get_pdf_page_count, path)
+    return ApplyEditsResponse(
+        pdf_url=pdf_url,
+        page_count=pages,
+        file_size=len(pdf_bytes),
+        edits_applied=applied,
+        edits_failed=failed,
+    )
+
+
+@router.get("/{workspace_id}/pdf")
+async def serve_workspace_pdf(workspace_id: str, version: str = "original") -> FileResponse:
+    """Serve the original or revised PDF from local disk storage."""
+    _require_workspace(workspace_id)
+    if await store.get_workspace(workspace_id) is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    if version == "revised":
+        pdf_path = await store.get_revised_pdf_path(workspace_id)
+        if not pdf_path or not Path(pdf_path).exists():
+            document = await store.get_document(workspace_id)
+            if not document:
+                raise HTTPException(status_code=404, detail="No PDF available")
+            pdf_path = document["path"]
+    else:
+        document = await store.get_document(workspace_id)
+        if not document:
+            raise HTTPException(status_code=404, detail="No PDF available")
+        pdf_path = document["path"]
+    if not Path(pdf_path).exists():
+        raise HTTPException(status_code=404, detail="PDF file not found on disk")
+    filename = safe_pdf_filename(Path(pdf_path).name)
+    return FileResponse(
+        path=pdf_path,
+        media_type="application/pdf",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Cross-Origin-Resource-Policy": "cross-origin",
+            "Access-Control-Allow-Origin": "*",
+            "Content-Disposition": f'inline; filename="{filename}"',
+        },
+    )
+
+
+@router.post("/{workspace_id}/compile-preview")
+async def compile_pdf_preview(workspace_id: str, req: CompilePreviewRequest) -> dict[str, str | int]:
+    """Compile a live preview by applying edits to the original PDF or falling back to WeasyPrint."""
+    _require_workspace(workspace_id)
+    if await store.get_workspace(workspace_id) is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    document = await store.get_document(workspace_id)
+    if req.edits and document and Path(document["path"]).exists():
+        edits_dicts = [{"source_text": e.source_text, "replacement_text": e.replacement_text} for e in req.edits]
+        try:
+            pdf_bytes, applied, failed = await asyncio.to_thread(
+                apply_edits_to_pdf, document["path"], edits_dicts
+            )
+            path, sha = await artifacts.save_revised(workspace_id, req.document_name, pdf_bytes)
+            await store.save_revised_pdf(workspace_id, path, sha)
+            return {
+                "pdf_url": f"/api/v1/workspaces/{workspace_id}/pdf?version=revised",
+                "edits_applied": applied,
+            }
+        except (FileNotFoundError, RuntimeError, ValueError, OSError) as exc:
+            logger.warning(f"PyMuPDF edit failed, falling back to WeasyPrint: {exc}")
+    try:
+        payload = await asyncio.to_thread(render_pdf, req.html, req.document_name)
+        path, sha = await artifacts.save_revised(workspace_id, req.document_name, payload)
+        await store.save_revised_pdf(workspace_id, path, sha)
+        return {
+            "pdf_url": f"/api/v1/workspaces/{workspace_id}/pdf?version=revised",
+            "edits_applied": 0,
+        }
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+

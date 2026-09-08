@@ -95,3 +95,32 @@ class ExportPdfRequest(BaseModel):
     """Sanitized editor content submitted for regenerated PDF output."""
     html: str
     document_name: str = "tender.pdf"
+
+
+class PdfEdit(BaseModel):
+    """Single text replacement to apply on the original PDF."""
+    source_text: str
+    replacement_text: str
+    finding_id: str | None = None
+
+
+class ApplyEditsRequest(BaseModel):
+    """Batch of edits to apply to the workspace's original PDF."""
+    edits: list[PdfEdit]
+    document_name: str = "tender.pdf"
+
+
+class ApplyEditsResponse(BaseModel):
+    """Result of applying edits to the original PDF."""
+    pdf_url: str
+    page_count: int
+    file_size: int
+    edits_applied: int
+    edits_failed: list[str] = Field(default_factory=list)
+
+
+class CompilePreviewRequest(BaseModel):
+    """Request to compile a preview PDF with pending edits."""
+    html: str
+    document_name: str = "tender.pdf"
+    edits: list[PdfEdit] = Field(default_factory=list)

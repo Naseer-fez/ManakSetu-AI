@@ -22,9 +22,9 @@ async def voice_live_endpoint(websocket: WebSocket) -> None:
         await session.run()
     except WebSocketDisconnect:
         logger.info("Client disconnected from live voice session")
-    except (RuntimeError, OSError, ValueError) as exc:
+    except Exception as exc:
         logger.error(f"Live voice session error ({type(exc).__name__}): {exc}")
         try:
             await websocket.send_json({"event": "error", "message": str(exc), "component": "session", "recoverable": False})
-        except (RuntimeError, OSError):
+        except (RuntimeError, OSError, WebSocketDisconnect):
             pass

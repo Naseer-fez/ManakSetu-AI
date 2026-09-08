@@ -52,24 +52,33 @@ async def health() -> dict[str, str]:
     return {"status": "online", "device": "Mac M-Series (Cloud Bridge)", "model": os.getenv("MAC_CLOUD_MODEL", "cloud")}
 
 
-from backend.engine.mac_calc_benchmark import generate_heavy_engineering_calculation
-
 @app.post("/reason", response_model=None)
 async def reason_endpoint(req: ReasonRequest) -> Any:
-    """Perform heavy reasoning with multi-iteration calculations on Mac node."""
+    """Perform heavy reasoning via Cloud LLM; report offline if unavailable (R9 compliant)."""
     logger.info(f"Mock Mac Server received reasoning request (stream={req.stream})")
-    calc_data = generate_heavy_engineering_calculation(req.prompt)
+    try:
+        cloud_res = await cloud_reasoner.generate_text(req.prompt, req.system_prompt)
+    except (RuntimeError, OSError, ValueError, ConnectionError, TimeoutError) as exc:
+        logger.warning(f"Cloud LLM unreachable: {type(exc).__name__}: {exc}")
+        cloud_res = None
+
+    if not cloud_res or "No LLM model is currently available" in cloud_res:
+        offline_msg = (
+            "Mac reasoning node is currently offline. "
+            "No AI model is available to process this request."
+        )
+        if req.stream:
+            async def offline_stream() -> AsyncGenerator[str, None]:
+                yield offline_msg + "\n"
+            return StreamingResponse(offline_stream(), media_type="text/plain")
+        return ReasonResponse(response=offline_msg, source="mac_m3_cloud_bridge_offline")
 
     if req.stream:
         async def stream_gen() -> AsyncGenerator[str, None]:
-            for line in calc_data.split("\n"):
+            for line in cloud_res.split("\n"):
                 yield line + "\n"
         return StreamingResponse(stream_gen(), media_type="text/plain")
-
-    cloud_res = await cloud_reasoner.generate_text(req.prompt, req.system_prompt)
-    if cloud_res and "No LLM model is currently available" not in cloud_res:
-        return ReasonResponse(response=f"{cloud_res}\n\n{calc_data}")
-    return ReasonResponse(response=calc_data)
+    return ReasonResponse(response=cloud_res)
 
 
 def start() -> None:

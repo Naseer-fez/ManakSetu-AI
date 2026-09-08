@@ -1,5 +1,5 @@
 import React from "react";
-import { Sparkles, Send, Trash2 } from "lucide-react";
+import { Sparkles, Send, Trash2, X } from "lucide-react";
 import type { WorkspaceChatMessage } from "@/components/workspace_desk/types";
 import { AskAiMessageList } from "@/components/workspace_desk/AskAiMessageList";
 
@@ -9,6 +9,7 @@ interface AskAiPanelProps {
   setInputPrompt: (val: string) => void;
   onSendMessage: () => void;
   onClearChat: () => void;
+  onClose?: () => void;
 }
 
 export const AskAiPanel: React.FC<AskAiPanelProps> = ({
@@ -17,6 +18,7 @@ export const AskAiPanel: React.FC<AskAiPanelProps> = ({
   setInputPrompt,
   onSendMessage,
   onClearChat,
+  onClose,
 }) => {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -33,14 +35,26 @@ export const AskAiPanel: React.FC<AskAiPanelProps> = ({
           <Sparkles className="w-4 h-4 text-gov-blue dark:text-blue-400" />
           <h3 className="text-xs font-bold text-gov-navy dark:text-white">Review Copilot AI</h3>
         </div>
-        <button
-          onClick={onClearChat}
-          className="text-gov-text-secondary hover:text-gov-red dark:text-gray-400 dark:hover:text-red-400 transition-colors p-1 rounded hover:bg-white dark:hover:bg-slate-800"
-          title="Clear chat"
-          aria-label="Clear chat messages"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onClearChat}
+            className="text-gov-text-secondary hover:text-gov-red dark:text-gray-400 dark:hover:text-red-400 transition-colors p-1 rounded hover:bg-white dark:hover:bg-slate-800"
+            title="Clear chat"
+            aria-label="Clear chat messages"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="text-gov-text-secondary hover:text-gov-navy dark:text-gray-400 dark:hover:text-white transition-colors p-1 rounded hover:bg-white dark:hover:bg-slate-800"
+              title="Close Copilot Panel"
+              aria-label="Close Copilot Panel"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Messages */}
@@ -61,7 +75,7 @@ export const AskAiPanel: React.FC<AskAiPanelProps> = ({
           <button
             onClick={onSendMessage}
             disabled={!inputPrompt.trim()}
-            className="px-3.5 py-2 rounded-lg bg-gov-blue hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center transition-colors shadow-sm"
+            className="px-3.5 py-2 rounded-lg bg-gov-blue hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center transition-colors shadow-sm cursor-pointer"
             aria-label="Send message to AI copilot"
           >
             <Send className="w-3.5 h-3.5" />

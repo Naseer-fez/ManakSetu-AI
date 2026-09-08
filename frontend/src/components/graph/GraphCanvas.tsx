@@ -2,6 +2,7 @@ import React from "react";
 import type { PositionedNode, GraphEdgeData, NetworkFocusState } from "@/components/graph/types";
 import { GraphNode } from "@/components/graph/GraphNode";
 import { GraphEdgesLayer } from "@/components/graph/GraphEdgesLayer";
+import { GraphDefs } from "@/components/graph/GraphDefs";
 
 interface GraphCanvasProps {
   nodes: PositionedNode[];
@@ -54,36 +55,13 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       onClick={onBackgroundClick}
       style={{ cursor: isDragging ? "grabbing" : "grab" }}
     >
-      <defs>
-        <filter id="unrelatedBlur" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="2.5" />
-        </filter>
-        <radialGradient id="nodeGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#0a84ff" stopOpacity="0.4" />
-          <stop offset="100%" stopColor="#0a84ff" stopOpacity="0" />
-        </radialGradient>
-        <linearGradient id="edgeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.5" />
-          <stop offset="100%" stopColor="#6366f1" stopOpacity="0.5" />
-        </linearGradient>
-        <linearGradient id="edgeHighlight" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#30d158" stopOpacity="1" />
-          <stop offset="100%" stopColor="#34d399" stopOpacity="1" />
-        </linearGradient>
-        {/* CSS keyframes for ping animation injected via <style> */}
-        <style>{`
-          @keyframes ping {
-            0% { transform: scale(1); opacity: 0.6; }
-            75%, 100% { transform: scale(1.45); opacity: 0; }
-          }
-        `}</style>
-      </defs>
+      <GraphDefs />
 
       <g
         transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}
         style={{
           transformOrigin: "0px 0px",
-          transition: isDragging ? "none" : "transform 0.5s cubic-bezier(0.22, 1, 0.36, 1)",
+          transition: isDragging ? "none" : "transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1)",
         }}
       >
         <GraphEdgesLayer

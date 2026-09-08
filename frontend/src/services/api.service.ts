@@ -70,6 +70,62 @@ export async function exportWorkspacePdf(workspaceId: string, html: string, docu
   return res.blob();
 }
 
+export interface PdfEdit {
+  source_text: string;
+  replacement_text: string;
+  finding_id?: string;
+}
+
+export interface ApplyEditsResponse {
+  pdf_url: string;
+  page_count: number;
+  file_size: number;
+  edits_applied: number;
+  edits_failed: string[];
+}
+
+export async function applyPdfEdits(
+  workspaceId: string,
+  edits: PdfEdit[],
+  documentName: string
+): Promise<ApplyEditsResponse> {
+  const res = await fetch(`${API_BASE}/workspaces/${workspaceId}/apply-edits`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ edits, document_name: documentName }),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(detail || "Failed to apply PDF edits");
+  }
+  return res.json();
+}
+
+export function getWorkspacePdfUrl(
+  workspaceId: string,
+  version: "original" | "revised" = "original"
+): string {
+  return `${API_BASE}/workspaces/${workspaceId}/pdf?version=${version}`;
+}
+
+export async function compilePdfPreview(
+  workspaceId: string,
+  html: string,
+  documentName: string,
+  edits: PdfEdit[] = []
+): Promise<{ pdf_url: string; edits_applied: number }> {
+  const res = await fetch(`${API_BASE}/workspaces/${workspaceId}/compile-preview`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ html, document_name: documentName, edits }),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(detail || "Failed to compile PDF preview");
+  }
+  return res.json();
+}
+
 export async function analyzeWorkspace(workspaceId: string, file: File): Promise<WorkspaceAnalysis> {
   const body = new FormData();
   body.append("file", file);
@@ -172,9 +228,21 @@ export async function explainStandardStream(
         for (const line of event.split(/\r?\n/)) {
           if (line.startsWith("data:")) {
             const data = line.startsWith("data: ") ? line.slice(6) : line.slice(5);
-            if (data === "[DONE]") return;
-            if (data.startsWith("[ERROR:")) throw new Error(data);
-            onChunk(data);
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.done) return;
+              if (parsed.error) throw new Error(parsed.error);
+              if (parsed.text !== undefined) onChunk(parsed.text);
+            } catch (parseErr: unknown) {
+              if (parseErr instanceof SyntaxError) {
+                // Non-JSON fallback: legacy sentinel support
+                if (data === "[DONE]") return;
+                if (data.startsWith("[ERROR:")) throw new Error(data);
+                onChunk(data);
+              } else {
+                throw parseErr;
+              }
+            }
           }
         }
       }

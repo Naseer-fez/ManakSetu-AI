@@ -355,26 +355,39 @@ class LocalGgufLlmProvider(BaseLlmProvider):
             async with self._semaphore:
                 loop = asyncio.get_running_loop()
                 queue: asyncio.Queue[str | object] = asyncio.Queue()
+                cancel_event = threading.Event()
 
                 def worker() -> None:
                     try:
                         gen = self._sync_generate_stream(prompt, system_prompt, max_tokens, use_grammar)
                         for chunk in gen:
+                            if cancel_event.is_set():
+                                logger.info("Local GGUF: Worker thread cancelled by client disconnect")
+                                break
                             loop.call_soon_threadsafe(queue.put_nowait, chunk)
                     except (RuntimeError, ValueError, TypeError, OSError) as e:
                         logger.warning(f"Local GGUF: worker thread error ({type(e).__name__}: {e})")
-                        loop.call_soon_threadsafe(queue.put_nowait, f"\\n[Error: {type(e).__name__}]")
+                        loop.call_soon_threadsafe(queue.put_nowait, f"\n[Error: {type(e).__name__}]")
                     finally:
                         loop.call_soon_threadsafe(queue.put_nowait, _STREAM_END)
 
-                thread = threading.Thread(target=worker)
+                thread = threading.Thread(target=worker, daemon=True)
                 thread.start()
 
-                while True:
-                    chunk = await queue.get()
-                    if chunk is _STREAM_END:
-                        break
-                    yield chunk  # type: ignore
+                try:
+                    while True:
+                        chunk = await queue.get()
+                        if chunk is _STREAM_END:
+                            break
+                        yield chunk  # type: ignore
+                except (GeneratorExit, asyncio.CancelledError):
+                    logger.warning("Local GGUF: Client disconnected during stream — cancelling worker")
+                    cancel_event.set()
+                finally:
+                    cancel_event.set()
+                    thread.join(timeout=5.0)
+                    if thread.is_alive():
+                        logger.warning("Local GGUF: Worker thread did not terminate within 5s timeout")
         except BackpressureError:
             raise
         except (ValueError, RuntimeError, OSError, TypeError) as exc:
@@ -383,3 +396,4 @@ class LocalGgufLlmProvider(BaseLlmProvider):
         finally:
             async with self._queue_lock:
                 self._queue_count -= 1
+

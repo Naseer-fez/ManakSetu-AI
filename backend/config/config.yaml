@@ -105,9 +105,9 @@ distributed_reasoning:
   mac_timeout_sec: 25.0
 
 web_search:
-  enabled: true
+  enabled: false
   provider: "duckduckgo"
-  request_timeout_sec: 15
+  request_timeout_sec: 6
   fast_answer_top_k: 2
   fast_answer_max_tokens: 300
   heavy_reasoning_top_k: 3

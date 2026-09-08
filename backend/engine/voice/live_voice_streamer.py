@@ -43,7 +43,7 @@ class LiveVoiceStreamer:
                     continue
                 for raw_sentence in self._buffer.add_token(token):
                     chunk_idx, full_text = await self._process_sentence(raw_sentence, chunk_idx, full_text, language)
-        except (RuntimeError, OSError, ValueError) as exc:
+        except Exception as exc:
             logger.error(f"LLM stream error ({type(exc).__name__}): {exc}")
             await self._send(ErrorEvent(message=str(exc), component="llm"))
 
@@ -72,6 +72,6 @@ class LiveVoiceStreamer:
                 return
             b64 = base64.b64encode(tts_res.audio_bytes).decode("ascii")
             await self._send(TtsAudioEvent(data=b64, sample_rate=tts_res.sample_rate, chunk_index=chunk_idx))
-        except (RuntimeError, OSError, ValueError) as exc:
+        except Exception as exc:
             logger.error(f"TTS synthesis error ({type(exc).__name__}): {exc}")
             await self._send(ErrorEvent(message=str(exc), component="tts"))

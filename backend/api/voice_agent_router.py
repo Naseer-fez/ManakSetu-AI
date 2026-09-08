@@ -21,7 +21,7 @@ orchestrator = VoiceAgentOrchestrator()
 async def voice_chat_endpoint(
     audio_file: UploadFile = File(...),
     chat_history: str = Form("[]"),
-    mode: str = Form("thinking"),
+    mode: str = Form("fast"),
     language: str = Form("auto"),
     pdf_text: str | None = Form(None),
 ) -> VoiceChatResponse:

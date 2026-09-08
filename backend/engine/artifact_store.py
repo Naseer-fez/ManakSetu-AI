@@ -29,3 +29,15 @@ class ArtifactStore:
         target.write_bytes(content)
         return str(target), hashlib.sha256(content).hexdigest()
 
+    async def save_revised(self, workspace_id: str, name: str, content: bytes) -> tuple[str, str]:
+        return await asyncio.to_thread(self._save_revised, workspace_id, name, content)
+
+    def _save_revised(self, workspace_id: str, name: str, content: bytes) -> tuple[str, str]:
+        safe_name = re.sub(r"[^A-Za-z0-9._-]", "_", Path(name).name)[:120] or "revised.pdf"
+        folder = (self.root / workspace_id).resolve()
+        folder.mkdir(parents=True, exist_ok=True)
+        target = (folder / f"revised_{safe_name}").resolve()
+        if folder not in target.parents:
+            raise ValueError("Artifact path escaped workspace")
+        target.write_bytes(content)
+        return str(target), hashlib.sha256(content).hexdigest()

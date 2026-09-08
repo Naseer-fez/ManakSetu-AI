@@ -73,9 +73,23 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_cors_origins = app_settings.server.cors_origins
+if _cors_origins == ["*"]:
+    # Wildcard + credentials violates W3C Fetch spec and is rejected by browsers.
+    # Fall back to common development origins; override via config for production.
+    _cors_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+    logger.warning(
+        "[CORS] Wildcard origin is incompatible with allow_credentials=True. "
+        "Falling back to default development origins. Set server.cors_origins in config for production."
+    )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=app_settings.server.cors_origins,
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

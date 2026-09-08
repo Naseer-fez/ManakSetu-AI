@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { FileText } from "lucide-react";
+import { PdfViewer } from "@/components/pdf/PdfViewer";
 
 interface WorkspacePdfContentProps {
   file: File;
@@ -11,26 +12,14 @@ export const WorkspacePdfContent: React.FC<WorkspacePdfContentProps> = ({
   pdfBlobUrl,
 }) => {
   const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-  const [createdUrl, setCreatedUrl] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!pdfBlobUrl && isPdf && file) {
-      const url = URL.createObjectURL(file);
-      setCreatedUrl(url);
-      return () => URL.revokeObjectURL(url);
-    }
-    return undefined;
-  }, [file, pdfBlobUrl, isPdf]);
-
-  const activeUrl = pdfBlobUrl || createdUrl;
-
-  if (activeUrl && isPdf) {
+  if (isPdf) {
     return (
       <div className="w-full h-full bg-slate-950 relative overflow-hidden">
-        <iframe
-          src={`${activeUrl}#view=FitH&toolbar=1`}
-          className="w-full h-full border-0 bg-slate-950 block"
-          title="Tender Document Viewer"
+        <PdfViewer
+          file={pdfBlobUrl || file}
+          title={file.name}
+          downloadUrl={pdfBlobUrl || undefined}
         />
       </div>
     );

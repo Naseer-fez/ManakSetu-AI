@@ -41,7 +41,9 @@ export const RemembranceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     try { localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chatMessages)); } catch (err: unknown) { /* ignore */ }
   }, [chatMessages]);
 
-  useEffect(() => () => { if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl); }, [pdfBlobUrl]);
+  useEffect(() => () => {
+    if (pdfBlobUrl && pdfBlobUrl.startsWith("blob:")) URL.revokeObjectURL(pdfBlobUrl);
+  }, [pdfBlobUrl]);
 
   const setTenderData = (f: File, a: WorkspaceAnalysis, url: string, text?: string) => {
     setFile(f); setAnalysis(a); setPdfBlobUrl(url); if (text) setPdfText(text); setIsPdfConnectedToAiChat(true);
@@ -53,7 +55,7 @@ export const RemembranceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const clearTenderData = () => {
-    if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
+    if (pdfBlobUrl && pdfBlobUrl.startsWith("blob:")) URL.revokeObjectURL(pdfBlobUrl);
     setFile(null); setAnalysis(null); setPdfBlobUrl(null); setPdfText("");
   };
 
@@ -67,7 +69,9 @@ export const RemembranceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const clearTabData = (tabId: string) => {
     setTabs(prev => {
       const next = { ...prev };
-      if (next[tabId]?.pdfBlobUrl) URL.revokeObjectURL(next[tabId].pdfBlobUrl as string);
+      if (next[tabId]?.pdfBlobUrl && (next[tabId].pdfBlobUrl as string).startsWith("blob:")) {
+        URL.revokeObjectURL(next[tabId].pdfBlobUrl as string);
+      }
       delete next[tabId];
       return next;
     });

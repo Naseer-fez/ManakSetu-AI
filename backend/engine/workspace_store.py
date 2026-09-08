@@ -34,6 +34,7 @@ class WorkspaceStore:
                 CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, role TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
                 CREATE TABLE IF NOT EXISTS revisions (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, payload TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS templates (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, payload TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS revised_pdfs (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, path TEXT NOT NULL, sha256 TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
             """)
 
     async def create(self, name: str) -> str:
@@ -147,3 +148,24 @@ class WorkspaceStore:
                 return None
             docs = conn.execute("SELECT id,name,sha256 FROM documents WHERE workspace_id=?", (workspace_id,)).fetchall()
             return {"id": row["id"], "name": row["name"], "created_at": row["created_at"], "documents": [dict(d) for d in docs]}
+
+    async def save_revised_pdf(self, workspace_id: str, path: str, sha256: str) -> None:
+        await asyncio.to_thread(self._insert_revised_pdf, workspace_id, path, sha256)
+
+    def _insert_revised_pdf(self, workspace_id: str, path: str, sha256: str) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO revised_pdfs(id, workspace_id, path, sha256) VALUES(?, ?, ?, ?)",
+                (workspace_id, workspace_id, path, sha256),
+            )
+
+    async def get_revised_pdf_path(self, workspace_id: str) -> str | None:
+        return await asyncio.to_thread(self._read_revised_pdf_path, workspace_id)
+
+    def _read_revised_pdf_path(self, workspace_id: str) -> str | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT path FROM revised_pdfs WHERE workspace_id=? ORDER BY rowid DESC LIMIT 1",
+                (workspace_id,),
+            ).fetchone()
+            return row["path"] if row else None

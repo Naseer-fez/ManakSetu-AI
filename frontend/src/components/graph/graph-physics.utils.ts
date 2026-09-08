@@ -18,7 +18,8 @@ export function computeClusteredLayout(
 
   const divisions = Array.from(new Set(rawNodes.map(n => n.division || "General")));
   const divAngleStep = (2 * Math.PI) / (divisions.length || 1);
-  const clusterDist = Math.max(200, Math.min(270, divisions.length * 48));
+  // Increase cluster spread distance to give graphs ample breathing space
+  const clusterDist = Math.max(250, Math.min(360, divisions.length * 64));
 
   const clusterAnchors: Record<string, { x: number; y: number }> = {};
   divisions.forEach((div, idx) => {
@@ -34,7 +35,7 @@ export function computeClusteredLayout(
     const anchor = clusterAnchors[div] || { x: 0, y: 0 };
     const h = pseudoHash(n.id);
     const angle = (h % 360) * (Math.PI / 180);
-    const radius = 25 + (h % 45);
+    const radius = 35 + (h % 65);
     return {
       ...n,
       clusterId: div,
@@ -47,9 +48,10 @@ export function computeClusteredLayout(
   const nodeMap = new Map<string, PositionedNode>();
   nodes.forEach(n => nodeMap.set(n.id, n));
 
-  const iterations = 150;
-  const targetEdgeDist = 78;
-  const minNodeDist = 68;
+  const iterations = 160;
+  // Increased target edge distance and min node distance for generous spacing
+  const targetEdgeDist = 115;
+  const minNodeDist = 100;
 
   for (let iter = 0; iter < iterations; iter++) {
     const alpha = Math.max(0.06, 1 - iter / iterations);
@@ -77,9 +79,9 @@ export function computeClusteredLayout(
       const anchor = clusterAnchors[a.clusterId] || { x: 0, y: 0 };
       a.x += (anchor.x - a.x) * 0.05 * alpha;
       a.y += (anchor.y - a.y) * 0.05 * alpha;
-      // Center gravity brings clusters closer together
-      a.x += (0 - a.x) * 0.018 * alpha;
-      a.y += (0 - a.y) * 0.018 * alpha;
+      // Gentle center gravity
+      a.x += (0 - a.x) * 0.012 * alpha;
+      a.y += (0 - a.y) * 0.012 * alpha;
 
       for (let j = i + 1; j < nodes.length; j++) {
         const b = nodes[j];
@@ -97,8 +99,8 @@ export function computeClusteredLayout(
     }
   }
 
-  // 3. Relaxation collision pass to guarantee no node overlap
-  const hardRadius = 56;
+  // 3. Relaxation collision pass with increased clearance radius
+  const hardRadius = 82;
   for (let p = 0; p < 8; p++) {
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
@@ -161,10 +163,10 @@ export function computeFocusCamera(
   const minY = Math.min(...ys);
   const maxY = Math.max(...ys);
 
-  const spanX = Math.max(240, maxX - minX + 140);
-  const spanY = Math.max(200, maxY - minY + 140);
+  const spanX = Math.max(280, maxX - minX + 180);
+  const spanY = Math.max(240, maxY - minY + 180);
 
-  const targetZoom = Math.min(1.6, Math.max(1.1, Math.min(750 / spanX, 550 / spanY)));
+  const targetZoom = Math.min(1.5, Math.max(0.9, Math.min(750 / spanX, 550 / spanY)));
   const centerX = (minX + maxX) / 2;
   const centerY = (minY + maxY) / 2;
 

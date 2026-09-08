@@ -1,8 +1,7 @@
 """Live voice WebSocket session handler coordinating STT, LLM streaming, and TTS."""
 from __future__ import annotations
 
-import json
-import time
+import json, time
 from typing import Any
 from fastapi import WebSocket
 from backend.config.settings import VoiceSettings, app_settings
@@ -23,15 +22,14 @@ class LiveVoiceSession:
 
     def __init__(self, websocket: WebSocket, settings: VoiceSettings | None = None) -> None:
         cfg = settings or app_settings.voice
-        self._ws = websocket
-        self._stt = get_stt_provider()
-        self._tts = get_tts_provider()
-        self._llm = get_llm_provider("local")
+        self._ws, self._stt, self._tts = websocket, get_stt_provider(), get_tts_provider()
+        self._llm = get_llm_provider("fast")
         self._buffer = SentenceBuffer(cfg.live_sentence_delimiters)
         self._streamer = LiveVoiceStreamer(self._llm, self._tts, self._buffer, self._send_event)
         self._history: list[dict[str, str]] = []
         self._max_turns: int = cfg.live_max_turns
         self._turn_index: int = 0
+        self._language: str = cfg.default_language
 
     async def run(self) -> None:
         """Main event loop — receive messages and dispatch handlers."""
@@ -54,45 +52,43 @@ class LiveVoiceSession:
     async def _handle_audio(self, audio_bytes: bytes) -> None:
         """Process a speech segment: STT -> LLM stream -> TTS stream."""
         t0 = time.perf_counter()
-        logger.info(f"Received live audio chunk ({len(audio_bytes)} bytes)")
         try:
-            stt_result = await self._stt.transcribe(audio_bytes)
+            stt_result = await self._stt.transcribe(audio_bytes, language=self._language)
         except (RuntimeError, OSError, ValueError) as exc:
             logger.error(f"STT transcription failed: {exc}")
             await self._send_event(ErrorEvent(message=str(exc), component="stt"))
             return
 
         text = stt_result.text.strip()
-        logger.info(f"STT transcribed: '{text}' (lang={stt_result.language}, conf={stt_result.confidence:.2f})")
-        await self._send_event(SttFinalEvent(
-            text=text, language=stt_result.language,
-            confidence=stt_result.confidence, duration_sec=stt_result.duration_sec,
-        ))
+        logger.info(f"STT transcribed: '{text}' (lang={stt_result.language})")
+        await self._send_event(SttFinalEvent(text=text, language=stt_result.language, confidence=stt_result.confidence, duration_sec=stt_result.duration_sec))
 
         if not text:
-            elapsed_ms = (time.perf_counter() - t0) * 1000.0
-            logger.warning("Empty transcription; concluding turn without LLM query.")
-            await self._send_event(ResponseCompleteEvent(full_text="", turn_index=self._turn_index, processing_time_ms=elapsed_ms))
+            await self._send_event(ResponseCompleteEvent(full_text="", turn_index=self._turn_index, processing_time_ms=(time.perf_counter() - t0) * 1000.0))
             return
 
-        full_text = await self._streamer.stream_llm_tts(text, language=stt_result.language or "en")
+        tts_lang = self._language if self._language != "auto" else (stt_result.language or "en")
+        full_text = await self._streamer.stream_llm_tts(text, language=tts_lang)
         self._history.extend([{"role": "user", "content": text}, {"role": "assistant", "content": full_text}])
         self._history = self._history[-self._max_turns * 2:]
-        elapsed_ms = (time.perf_counter() - t0) * 1000.0
-        await self._send_event(ResponseCompleteEvent(full_text=full_text, turn_index=self._turn_index, processing_time_ms=elapsed_ms))
+        await self._send_event(ResponseCompleteEvent(full_text=full_text, turn_index=self._turn_index, processing_time_ms=(time.perf_counter() - t0) * 1000.0))
         self._turn_index += 1
 
     async def _send_event(self, event: Any) -> None:
-        await self._ws.send_json(event.model_dump())
+        try:
+            await self._ws.send_json(event.model_dump())
+        except (RuntimeError, OSError):
+            pass
 
     async def _handle_control(self, raw: str) -> None:
         try:
             data = json.loads(raw)
-            if data.get("action") == "ping":
-                await self._ws.send_json({"event": "pong"})
-            elif data.get("action") == "reset":
-                self._history.clear()
-                self._buffer.reset()
-                self._turn_index = 0
-        except json.JSONDecodeError:
+            act = data.get("action")
+            if act == "ping":
+                await self._send_event(SessionStatusEvent(status="pong"))
+            elif act == "reset":
+                self._history.clear(); self._buffer.reset(); self._turn_index = 0
+            elif act == "set_language":
+                self._language = str(data.get("language", "auto"))
+        except (json.JSONDecodeError, TypeError):
             pass

@@ -1,7 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, Suspense, lazy } from "react";
+import { Loader2 } from "lucide-react";
 import { VoiceAssistantView } from "@/components/VoiceAssistantView";
-import { VoiceLivePanel } from "@/components/VoiceLivePanel";
 import { SpeakToAiSidebar } from "@/components/voice/SpeakToAiSidebar";
+
+const VoiceLivePanel = lazy(() =>
+  import("@/components/VoiceLivePanel").then((m) => ({ default: m.VoiceLivePanel }))
+);
 
 export const SpeakToAiView: React.FC = () => {
   const [voiceMode, setVoiceMode] = useState<"interactive" | "live">("interactive");
@@ -14,7 +18,16 @@ export const SpeakToAiView: React.FC = () => {
         {voiceMode === "interactive" ? (
           <VoiceAssistantView />
         ) : (
-          <VoiceLivePanel />
+          <Suspense
+            fallback={
+              <div className="flex flex-col items-center justify-center p-12 gap-3 text-gov-text-secondary dark:text-gray-400">
+                <Loader2 className="w-7 h-7 text-gov-blue dark:text-blue-400 animate-spin" />
+                <span className="text-xs font-medium">Initializing live streaming engine...</span>
+              </div>
+            }
+          >
+            <VoiceLivePanel />
+          </Suspense>
         )}
       </main>
     </div>

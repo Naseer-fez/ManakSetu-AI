@@ -41,22 +41,13 @@ class VoiceAgentOrchestrator:
     async def _execute_llm(
         self, query: str, mode: str, pdf_text: str | None, history: list[dict[str, str]] | None
     ) -> tuple[str, list[DocumentChunkEvidence]]:
-        """Dispatch query to fast or thinking LLM provider with grounding context."""
-        if mode.lower() == "fast":
-            resp = await self._llm_orchestrator.execute_fast_answer(query=query, pdf_text=pdf_text or "")
-            return resp.answer, []
-
-        matches, evidences = self._retriever.search_with_evidence(query=query, top_k=5, top_k_chunks=3)
-        standards = [m[0] for m in matches] if matches else self._loader.get_all_standards()[:5]
-        answer = await self._llm_service.answer_procurement_query(
-            question=query, context_standards=standards, document_chunks=evidences,
-            pdf_text=pdf_text, chat_history=history,
-        )
-        return answer, evidences
+        """Dispatch query exclusively to fast LLM provider for rapid voice responses."""
+        resp = await self._llm_orchestrator.execute_fast_answer(query=query, pdf_text=pdf_text or "")
+        return resp.answer, []
 
     async def process_voice_query(
         self, audio_bytes: bytes, chat_history: list[dict[str, str]] | None = None,
-        mode: str = "thinking", language: str = "auto", pdf_text: str | None = None,
+        mode: str = "fast", language: str = "auto", pdf_text: str | None = None,
     ) -> VoiceChatResponse:
         """Execute full Voice -> STT -> LLM -> TTS -> Audio pipeline."""
         t0 = time.perf_counter()

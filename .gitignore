@@ -35,6 +35,8 @@ vectordb/.venv/
 vectordb/7da7004f-aeb9-4cda-ae15-305300c21bac/
 legacy/vectordb/
 backend/data/uploads/
+backend/data/workspaces/
+backend/data/tts_cache/
 backend/data/datasets/**/*.jsonl
 backend/data/datasets/**/*.parquet
 backend/data/datasets/**/*.tar.gz

@@ -10,11 +10,10 @@ export interface LiveVoiceState {
   error: string | null; vadLoading: boolean; userSpeaking: boolean;
 }
 
-export function useLiveVoice(wsUrl: string) {
+export function useLiveVoice(wsUrl: string, language: string = "auto") {
   const [state, setState] = useState<LiveVoiceState>({
     isConnected: false, isListening: false, isProcessing: false,
-    currentTranscript: "", currentResponse: "", turns: [], error: null,
-    vadLoading: true, userSpeaking: false,
+    currentTranscript: "", currentResponse: "", turns: [], error: null, vadLoading: true, userSpeaking: false,
   });
   const ws = useRef<WebSocket | null>(null);
   const { ensureAudioContext, playAudioChunk, stopAudio } = useAudioPlayback();
@@ -24,23 +23,36 @@ export function useLiveVoice(wsUrl: string) {
     try {
       const socket = new WebSocket(wsUrl);
       socket.binaryType = "arraybuffer";
-      socket.onopen = () => setState(s => ({ ...s, isConnected: true, error: null }));
-      socket.onclose = () => setState(s => ({ ...s, isConnected: false, isListening: false }));
+      socket.onopen = () => {
+        setState(s => ({ ...s, isConnected: true, error: null }));
+        socket.send(JSON.stringify({ action: "set_language", language }));
+      };
+      socket.onclose = (ev: CloseEvent) => setState(s => ({
+        ...s, isConnected: false, isListening: false,
+        error: ev.reason || (ev.code !== 1000 && ev.code !== 1005 ? `WebSocket closed (code ${ev.code})` : s.error),
+      }));
       socket.onerror = () => setState(s => ({ ...s, error: "WebSocket connection failed" }));
       socket.onmessage = async (e) => {
-        const msg = JSON.parse(e.data);
-        if (msg.event === "stt_final") setState(s => ({ ...s, currentTranscript: msg.text, isProcessing: !!msg.text }));
-        else if (msg.event === "llm_chunk") setState(s => ({ ...s, currentResponse: s.currentResponse + msg.text }));
-        else if (msg.event === "tts_audio") await playAudioChunk(msg.data);
-        else if (msg.event === "response_complete") {
-          setState(s => ({
-            ...s, isProcessing: false,
-            turns: s.currentTranscript || s.currentResponse
-              ? [...s.turns, { role: "user", text: s.currentTranscript }, { role: "assistant", text: s.currentResponse }]
-              : s.turns,
-            currentTranscript: "", currentResponse: "",
-          }));
-        }
+        try {
+          const msg = typeof e.data === "string" ? JSON.parse(e.data) : null;
+          if (!msg) return;
+          if (msg.event === "session_status") setState(s => ({ ...s, isConnected: true }));
+          else if (msg.event === "stt_partial") setState(s => ({ ...s, currentTranscript: msg.text, isProcessing: true }));
+          else if (msg.event === "stt_final") setState(s => ({ ...s, currentTranscript: msg.text, isProcessing: !!msg.text }));
+          else if (msg.event === "llm_chunk") setState(s => ({ ...s, currentResponse: s.currentResponse + msg.text }));
+          else if (msg.event === "tts_audio") await playAudioChunk(msg.data);
+          else if (msg.event === "error") {
+            setState(s => ({ ...s, isProcessing: false, isListening: false, error: msg.message || "Voice error", currentTranscript: "", currentResponse: "" }));
+          } else if (msg.event === "response_complete") {
+            setState(s => ({
+              ...s, isProcessing: false,
+              turns: s.currentTranscript || s.currentResponse
+                ? [...s.turns, { role: "user", text: s.currentTranscript }, { role: "assistant", text: s.currentResponse }]
+                : s.turns,
+              currentTranscript: "", currentResponse: "",
+            }));
+          }
+        } catch { /* ignore malformed frames */ }
       };
       ws.current = socket;
     } catch (err: unknown) {
@@ -58,7 +70,7 @@ export function useLiveVoice(wsUrl: string) {
   const vad = useMicVAD({
     startOnLoad: false,
     baseAssetPath: "/vad/",
-    onnxWASMBasePath: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/",
+    onnxWASMBasePath: "/vad/",
     minSpeechMs: 150, positiveSpeechThreshold: 0.3, negativeSpeechThreshold: 0.25,
     redemptionMs: 800, submitUserSpeechOnPause: true,
     onSpeechEnd: (audio: Float32Array) => {
@@ -75,10 +87,10 @@ export function useLiveVoice(wsUrl: string) {
     else { await vad.start(); setState(s => ({ ...s, isListening: true })); }
   }, [state.isListening, vad, connect, ensureAudioContext]);
 
+  useEffect(() => { connect(); return () => disconnect(); }, [connect, disconnect]);
   useEffect(() => {
-    connect();
-    return () => disconnect();
-  }, [connect, disconnect]);
+    if (ws.current?.readyState === WebSocket.OPEN) ws.current.send(JSON.stringify({ action: "set_language", language }));
+  }, [language]);
 
   const error = state.error || (vad.errored ? String(vad.errored) : null);
   return { ...state, vadLoading: vad.loading, userSpeaking: vad.userSpeaking, error, connect, disconnect, toggleListening };

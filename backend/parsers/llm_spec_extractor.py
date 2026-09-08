@@ -14,7 +14,7 @@ class LlmSpecExtractor:
     def __init__(self, loader: StandardsLoader | None = None) -> None:
         self._loader = loader or StandardsLoader()
         self._llm_service = get_llm_service()
-        self._provider = get_llm_provider()
+        self._provider = getattr(self._llm_service, "_provider", None) or get_llm_provider()
         self._llm_findings = []
 
     async def extract_items(self, text: str) -> list[ExtractedLineItem]:
@@ -48,35 +48,52 @@ class LlmSpecExtractor:
             "Output only valid JSON."
         )
 
-        prompt = f"Tender document text:\n{text}\n\nExecute the flow and output the JSON object."
-
-        response_text = await self._provider.generate_text(prompt, system_prompt)
-
-        try:
-            clean_text = response_text.strip()
-            if clean_text.startswith("```json"):
-                clean_text = clean_text[7:]
-            if clean_text.startswith("```"):
-                clean_text = clean_text[3:]
-            if clean_text.endswith("```"):
-                clean_text = clean_text[:-3]
-
-            extracted_data = json.loads(clean_text.strip())
-        except json.JSONDecodeError:
-            extracted_data = {"items": [], "findings": []}
-
-        if isinstance(extracted_data, list):
-            items_data = extracted_data
-            self._llm_findings = []
-        elif isinstance(extracted_data, dict):
-            items_data = extracted_data.get("items", [])
-            self._llm_findings = extracted_data.get("findings", [])
+        # Chunk text to stay within safe context budget (~3000 tokens for content,
+        # leaving room for system prompt + expected JSON output within n_ctx=4096)
+        max_chars_per_chunk = 12000
+        if len(text) <= max_chars_per_chunk:
+            chunks = [text]
         else:
-            items_data = []
-            self._llm_findings = []
+            chunks = [text[i:i + max_chars_per_chunk] for i in range(0, len(text), max_chars_per_chunk)]
 
+        all_items_data: list[dict] = []
+        all_findings: list[dict] = []
+
+        for chunk_idx, chunk_text in enumerate(chunks):
+            prompt = f"Tender document text (part {chunk_idx + 1}/{len(chunks)}):\n{chunk_text}\n\nExecute the flow and output the JSON object."
+
+            response_text = await self._provider.generate_text(prompt, system_prompt)
+
+            try:
+                clean_text = response_text.strip()
+                if clean_text.startswith("```json"):
+                    clean_text = clean_text[7:]
+                if clean_text.startswith("```"):
+                    clean_text = clean_text[3:]
+                if clean_text.endswith("```"):
+                    clean_text = clean_text[:-3]
+
+                extracted_data = json.loads(clean_text.strip())
+            except json.JSONDecodeError:
+                extracted_data = {"items": [], "findings": []}
+
+            if isinstance(extracted_data, list):
+                all_items_data.extend(extracted_data)
+            elif isinstance(extracted_data, dict):
+                all_items_data.extend(extracted_data.get("items", []))
+                all_findings.extend(extracted_data.get("findings", []))
+
+        self._llm_findings = all_findings
+
+        # Deduplicate items by item_id, keeping first occurrence
+        seen_ids: set[int] = set()
         items: list[ExtractedLineItem] = []
-        for idx, item_data in enumerate(items_data, start=1):
+        for idx, item_data in enumerate(all_items_data, start=1):
+            item_id = item_data.get("item_id", idx)
+            if item_id in seen_ids:
+                continue
+            seen_ids.add(item_id)
+
             product_title = item_data.get("product_title", f"Procurement Item {idx}")
             spec_summary = item_data.get("spec_summary", "")
             cited = item_data.get("cited_standards", [])
@@ -93,9 +110,6 @@ class LlmSpecExtractor:
                 std = self._loader.get_by_code(code)
                 if std and std.status == StandardStatus.SUPERSEDED:
                     outdated.append(f"{code} (Superseded by {std.superseded_by})")
-
-            # Fallback item_id from data or use idx
-            item_id = item_data.get("item_id", idx)
 
             items.append(
                 ExtractedLineItem(

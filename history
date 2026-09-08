@@ -1,0 +1,34 @@
+How to Navigate Between Commits
+1. Go back to any specific commit (read-only / detached HEAD):
+powershell
+
+
+git checkout <commit_hash>
+Example:
+
+powershell
+
+
+git checkout 4d8f15a
+2. Return back to the latest commit on main:
+powershell
+
+
+git checkout main
+3. Jump directly between any two commits:
+powershell
+
+
+git checkout <target_commit_hash>
+Last 10 Local Commits
+Commit Hash	Commit Message	Time
+e5ca554	feat(graph): Project stabality	85 seconds ago
+c186bc8	Frontend changes	10 minutes ago
+987bf18	Day-1	49 minutes ago
+4d8f15a	fix: resolve backend crash on concurrent LLM inference and fix VAD wasm loading in Vite	71 minutes ago
+66c77a7	chore: sync remaining current code and backend updates	4 hours ago
+bf0f2f0	feat(workspace): implement interactive document review desk frontend	4 hours ago
+da13dcf	Hack	10 hours ago
+8704909	fix(engine): remove unsupported repeat_last_n parameter from llama_cpp chat completion	27 hours ago
+d287d66	perf(orchestrator): raise chat compaction threshold to 24k tokens and preserve raw history	28 hours ago
+8d6978a	feat(backend): complete prototype integration, guardrails, and production system prompts	28 hours ago

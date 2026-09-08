@@ -14,7 +14,7 @@ export const SystemStatusBadges: React.FC = () => {
         const s = await fetchMacStatus();
         if (mounted) setMacStatus(s);
       } catch (err: unknown) {
-        if (mounted) setMacStatus({ endpoint: "", host: "127.0.0.1", port: 8000, online: false });
+        if (mounted) setMacStatus({ endpoint: "", host: "Mac Cluster", port: 5008, online: false });
       }
     };
     checkStatus();

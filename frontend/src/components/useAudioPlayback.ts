@@ -18,16 +18,16 @@ export function useAudioPlayback() {
     source.start();
   }, []);
 
-  const ensureAudioContext = async (): Promise<AudioContext> => {
+  const ensureAudioContext = useCallback(async (): Promise<AudioContext> => {
     if (!audioCtx.current || audioCtx.current.state === "closed") {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       audioCtx.current = new AudioCtx();
     }
     if (audioCtx.current.state === "suspended") await audioCtx.current.resume();
     return audioCtx.current;
-  };
+  }, []);
 
-  const playAudioChunk = async (base64: string) => {
+  const playAudioChunk = useCallback(async (base64: string) => {
     try {
       if (!base64) return;
       const ctx = await ensureAudioContext();
@@ -38,10 +38,10 @@ export function useAudioPlayback() {
       const audioBuf = await ctx.decodeAudioData(bytes.buffer.slice(0));
       audioQueue.current.push(audioBuf);
       if (!isPlaying.current) playNext();
-    } catch (err: unknown) {
+    } catch {
       // Graceful decode fallback
     }
-  };
+  }, [ensureAudioContext, playNext]);
 
   const stopAudio = useCallback(() => {
     audioQueue.current = [];

@@ -77,7 +77,7 @@ async def test_audio_triggers_stt() -> None:
         from backend.engine.voice.live_voice_session import LiveVoiceSession
         session = LiveVoiceSession(ws)
         await session.run()
-    mock_stt.transcribe.assert_called_once_with(b"fake_audio")
+    mock_stt.transcribe.assert_called_once_with(b"fake_audio", language="auto")
 
 
 @pytest.mark.asyncio  
