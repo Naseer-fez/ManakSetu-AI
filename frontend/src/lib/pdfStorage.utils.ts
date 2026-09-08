@@ -1,5 +1,5 @@
 const DB_NAME = "bis_specai_storage";
-const STORE_NAME = "pdfs";
+const STORE = "pdfs";
 const META_PREFIX = "bis_pdf_meta_";
 
 export interface StoredPdfMetadata {
@@ -9,22 +9,24 @@ export interface StoredPdfMetadata {
   updatedAt: number;
 }
 
+interface StoredPdfRecord extends StoredPdfMetadata {
+  blob: Blob;
+}
+
 const activeBlobUrls = new Map<string, string>();
 
-function openDatabase(): Promise<IDBDatabase> {
+async function withStore<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBRequest): Promise<T | null> {
+  if (typeof indexedDB === "undefined") return null;
   return new Promise((resolve, reject) => {
-    if (typeof indexedDB === "undefined") {
-      return reject(new Error("IndexedDB is not available"));
-    }
     const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: "key" });
-      }
+    req.onupgradeneeded = () => req.result.createObjectStore(STORE, { keyPath: "key" });
+    req.onsuccess = () => {
+      const tx = req.result.transaction(STORE, mode);
+      const r = fn(tx.objectStore(STORE));
+      r.onsuccess = () => resolve(r.result ?? null);
+      r.onerror = () => reject(r.error);
     };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error || new Error("Failed to open IndexedDB"));
+    req.onerror = () => reject(req.error);
   });
 }
 
@@ -42,25 +44,18 @@ export function getPdfMetadata(key: string): StoredPdfMetadata | null {
 }
 
 export async function savePdfLocally(key: string, file: File | Blob, name?: string): Promise<string> {
-  const fileName = name || (file instanceof File ? file.name : "document.pdf");
   const metadata: StoredPdfMetadata = {
     key,
-    name: fileName,
+    name: name || (file instanceof File ? file.name : "document.pdf"),
     size: file.size,
     updatedAt: Date.now(),
   };
 
   try {
-    const db = await openDatabase();
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, "readwrite");
-      tx.objectStore(STORE_NAME).put({ ...metadata, blob: file });
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
+    await withStore("readwrite", (store) => store.put({ ...metadata, blob: file }));
     localStorage.setItem(`${META_PREFIX}${key}`, JSON.stringify(metadata));
   } catch (err) {
-    console.warn(`[pdfStorage] IndexedDB save fallback for ${key}:`, err);
+    console.warn(`[pdfStorage] IndexedDB fallback for ${key}:`, err);
   }
 
   const existingUrl = activeBlobUrls.get(key);
@@ -73,13 +68,8 @@ export async function savePdfLocally(key: string, file: File | Blob, name?: stri
 
 export async function getPdfBlob(key: string): Promise<Blob | null> {
   try {
-    const db = await openDatabase();
-    return await new Promise<Blob | null>((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, "readonly");
-      const req = tx.objectStore(STORE_NAME).get(key);
-      req.onsuccess = () => resolve(req.result ? req.result.blob : null);
-      req.onerror = () => reject(req.error);
-    });
+    const record = await withStore<StoredPdfRecord>("readonly", (store) => store.get(key));
+    return record ? record.blob : null;
   } catch {
     return null;
   }
@@ -88,10 +78,8 @@ export async function getPdfBlob(key: string): Promise<Blob | null> {
 export async function getPdfBlobUrl(key: string): Promise<string | null> {
   const cached = activeBlobUrls.get(key);
   if (cached) return cached;
-
   const blob = await getPdfBlob(key);
   if (!blob) return null;
-
   const url = URL.createObjectURL(blob);
   activeBlobUrls.set(key, url);
   return url;
@@ -105,15 +93,8 @@ export async function clearPdfLocally(key: string): Promise<void> {
   }
   try {
     localStorage.removeItem(`${META_PREFIX}${key}`);
-    const db = await openDatabase();
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, "readwrite");
-      tx.objectStore(STORE_NAME).delete(key);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
+    await withStore("readwrite", (store) => store.delete(key));
   } catch {
     // Ignore cleanup errors
   }
 }
-
